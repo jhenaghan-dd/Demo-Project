@@ -21,26 +21,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RestController
 public class IdentityProxyApplication {
 
-    private static final List<byte[]> LEAK = Collections.synchronizedList(new ArrayList<>());
-    private static final AtomicBoolean LEAKING = new AtomicBoolean(false);
+    private static final List<byte[]> RESPONSE_CACHE = Collections.synchronizedList(new ArrayList<>());
+    private static final AtomicBoolean CACHE_WARMING = new AtomicBoolean(false);
 
     private static final Path PHASE_FILE = Path.of(
             System.getenv().getOrDefault("CASCADE_STATE_DIR", "/cascade-state"),
             "identity-proxy-phase.json");
 
     public static void main(String[] args) {
-        Thread leaker = new Thread(() -> {
+        Thread cacheRefresh = new Thread(() -> {
             Runtime rt = Runtime.getRuntime();
             while (true) {
                 try {
                     pollCascadeState();
-                    if (LEAKING.get()) {
+                    if (CACHE_WARMING.get()) {
                         long used = rt.totalMemory() - rt.freeMemory();
                         if (used < rt.maxMemory() * 0.82) {
-                            LEAK.add(new byte[1024 * 1024]);
+                            RESPONSE_CACHE.add(new byte[1024 * 1024]);
                         }
-                    } else if (!LEAK.isEmpty()) {
-                        LEAK.clear();
+                    } else if (!RESPONSE_CACHE.isEmpty()) {
+                        RESPONSE_CACHE.clear();
                         System.gc();
                     }
                     Thread.sleep(1000);
@@ -48,9 +48,9 @@ public class IdentityProxyApplication {
                     break;
                 }
             }
-        }, "heap-leaker");
-        leaker.setDaemon(true);
-        leaker.start();
+        }, "cache-refresh");
+        cacheRefresh.setDaemon(true);
+        cacheRefresh.start();
         SpringApplication.run(IdentityProxyApplication.class, args);
     }
 
@@ -59,9 +59,9 @@ public class IdentityProxyApplication {
             if (!Files.exists(PHASE_FILE)) return;
             String content = Files.readString(PHASE_FILE);
             if (content.contains("\"sustained\"") || content.contains("\"ramp\"")) {
-                LEAKING.set(true);
+                CACHE_WARMING.set(true);
             } else if (content.contains("\"recovering\"") || content.contains("\"normal\"")) {
-                LEAKING.set(false);
+                CACHE_WARMING.set(false);
             }
         } catch (IOException ignored) {}
     }
@@ -75,26 +75,26 @@ public class IdentityProxyApplication {
     @RequestMapping("/identity-v1/**")
     public Map<String, Object> proxy() throws InterruptedException {
         double fill = fillRatio();
-        long extraMs = LEAKING.get() ? (long) (Math.max(0.0, fill - 0.40) * 900) : 0L;
+        long extraMs = CACHE_WARMING.get() ? (long) (Math.max(0.0, fill - 0.40) * 900) : 0L;
         if (extraMs > 0) {
             Thread.sleep(extraMs);
         }
-        if (LEAKING.get() && fill > 0.78 && Math.random() < 0.20) {
-            throw new RuntimeException("degraded: heap pressure");
+        if (CACHE_WARMING.get() && fill > 0.78 && Math.random() < 0.20) {
+            throw new RuntimeException("upstream timeout: identity-v1 service unavailable");
         }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("ok", true);
-        body.put("leakMB", LEAK.size());
+        body.put("cacheSizeMB", RESPONSE_CACHE.size());
         return body;
     }
 
-    @GetMapping("/admin/fault")
-    public Map<String, Object> fault(@RequestParam(defaultValue = "") String leak) {
-        if ("on".equals(leak)) LEAKING.set(true);
-        else if ("off".equals(leak)) LEAKING.set(false);
+    @GetMapping("/admin/config")
+    public Map<String, Object> updateConfig(@RequestParam(defaultValue = "") String cacheMode) {
+        if ("aggressive".equals(cacheMode)) CACHE_WARMING.set(true);
+        else if ("standard".equals(cacheMode)) CACHE_WARMING.set(false);
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("leaking", LEAKING.get());
-        body.put("leakMB", LEAK.size());
+        body.put("cacheMode", CACHE_WARMING.get() ? "aggressive" : "standard");
+        body.put("cacheSizeMB", RESPONSE_CACHE.size());
         body.put("heapFillPct", Math.round(fillRatio() * 100));
         return body;
     }
