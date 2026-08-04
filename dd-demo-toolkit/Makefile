@@ -187,6 +187,57 @@ logs-data-obs: ## Tail logs from the EY DSM workers (producer / pipeline / eval)
 logs-dbt: ## Tail logs from the dbt runner (build cycles + datadog-ci upload)
 	$(COMPOSE) logs -f data-obs-dbt-runner
 
+## -- WasteManagement fleet-at-scale (synthetic hosts + live fleet map) -------
+# One local process animates a fleet of collection trucks: each truck becomes
+# a distinct Datadog host (wm.truck.* + system.* tagged host:wm-truck-NNNN) AND
+# a live dot on a Leaflet map. No AWS, no per-truck container. See
+# docker/waste_management/. Runs in the foreground (Ctrl-C to stop).
+_WM_DIR := docker/waste_management
+_WM_PY  := ../../.venv-ui/bin/python
+
+wm-fleet: check-op ## Run the fleet: emit truck-hosts to Datadog AND serve the live map on :8088
+	$(OP_RUN) sh -c 'cd $(_WM_DIR) && PYTHONUNBUFFERED=1 $(_WM_PY) run.py'
+
+wm-fleet-map: ## Map only — serve the live fleet map on :8088 (no Datadog, no creds needed)
+	cd $(_WM_DIR) && PYTHONUNBUFFERED=1 $(_WM_PY) server.py
+
+wm-fleet-dashboard: check-op ## Create the WasteManagement Fleet Operations dashboard (Host Map + KPIs)
+	$(OP_RUN) sh -c 'cd $(_WM_DIR) && $(_WM_PY) deploy_dashboard.py create'
+
+wm-fleet-dashboard-delete: check-op ## Delete the WasteManagement Fleet Operations dashboard
+	$(OP_RUN) sh -c 'cd $(_WM_DIR) && $(_WM_PY) deploy_dashboard.py delete'
+
+wm-fleet-demo: check-op ## One-shot: (re)start fleet + tunnel detached and embed the live map in the dashboard. Run this before a demo.
+	$(OP_RUN) bash $(_WM_DIR)/demo_up.sh
+
+wm-fleet-demo-down: ## Stop the detached fleet demo (fleet + Cloudflare tunnel)
+	-pkill -f "\.venv-ui/bin/python run.py" 2>/dev/null || true
+	-pkill -f "cloudflared tunnel --url http://localhost:8088" 2>/dev/null || true
+	@echo "stopped WM fleet demo (fleet + tunnel)"
+
+## -- MDES Apple Pay provisioning (Mastercard) — synthetic logs + dashboards --
+# Recreates two Mastercard Splunk dashboards (operational + troubleshooting) on
+# a 100% synthetic MDES log stream. Standalone (not a verticals/ vertical); see
+# docker/mc_apple_mdes/. Log stream runs in the foreground (Ctrl-C to stop).
+_MC_DIR := docker/mc_apple_mdes
+_MC_PY  := ../../.venv-ui/bin/python
+
+mc-apple-dashboards: check-op ## Create the two MDES Apple Pay dashboards (operational + troubleshooting)
+	$(OP_RUN) sh -c 'cd $(_MC_DIR) && $(_MC_PY) deploy_dashboards.py create'
+
+mc-apple-dashboards-delete: check-op ## Delete the two MDES Apple Pay dashboards
+	$(OP_RUN) sh -c 'cd $(_MC_DIR) && $(_MC_PY) deploy_dashboards.py delete'
+
+mc-apple-logs: check-op ## Run the live synthetic MDES log stream -> Datadog (foreground)
+	$(OP_RUN) sh -c 'cd $(_MC_DIR) && PYTHONUNBUFFERED=1 $(_MC_PY) run.py'
+
+mc-apple-demo: check-op ## One-shot: deploy dashboards + start the log stream detached. Run before a demo.
+	$(OP_RUN) bash $(_MC_DIR)/demo_up.sh
+
+mc-apple-demo-down: ## Stop the detached MDES log stream
+	-pkill -f "run.py --tag mc-apple-mdes" 2>/dev/null || true
+	@echo "stopped MDES Apple Pay log stream"
+
 ## -- Sensing Hospital mock app (real Datadog Agent) --------------------------
 
 up-mock-app: check-op ## Start the Sensing Hospital mock app: dd-agent + microservices + edge fleet
@@ -198,8 +249,8 @@ down-mock-app: ## Stop only the Sensing Hospital mock app
 build-mock-app: ## Build the Sensing Hospital mock-app images
 	$(COMPOSE) --profile mock-app build
 
-logs-mock-app: ## Tail logs from the mock-app microservices + edge fleet
-	$(COMPOSE) logs -f care-portal care-summary-api ai-care-companion rtls-location-service care-experience-platform care-event-router care-event-consumer room-sensing-gateway patient-context-service clinical-alerts-service notification-service edge-device-fleet remediation-controller
+logs-mock-app: ## Tail logs from the mock-app microservices + edge fleet + identity-proxy
+	$(COMPOSE) logs -f care-portal care-summary-api ai-care-companion rtls-location-service care-experience-platform care-event-router care-event-consumer room-sensing-gateway patient-context-service clinical-alerts-service notification-service edge-device-fleet remediation-controller identity-proxy-jvm
 
 up-traffic: check-op ## Start just the RUM traffic generator (mock-app must be running)
 	$(OP_RUN) $(COMPOSE) --profile mock-app up $(UP_FLAGS) -d rum-traffic-generator

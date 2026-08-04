@@ -21,7 +21,11 @@ services:
     environment:
       - DD_API_KEY=${DD_API_KEY:?DD_API_KEY not set — run via `make up`, or wrap with `op run --env-file=.env -- docker compose ...`}
       - DD_SITE=${DD_SITE:-datadoghq.com}
-      - DD_HOSTNAME=finance-simulator
+      # Host stamped on OTLP metrics with no resource host.name. Must be
+      # RFC1123-compliant (hyphens only, NO underscores — an env-derived
+      # `waste_management-simulator` crashes the Datadog exporter). Hardcoded
+      # to a valid WM host so metrics don't land on a finance/DBM host.
+      - DD_HOSTNAME=wm-fleet-simulator
       - GOGC=80
 
   simulator:
@@ -962,6 +966,41 @@ services:
       - DD_DEPLOYMENT=on-prem
       - DD_LOGS_INJECTION=true
       - DD_TAGS=dd-demo-toolkit:true vertical:healthcare incident_domain:care-experience deployment:on-prem team:facilities
+    restart: unless-stopped
+    profiles:
+      - mock-app
+
+  # Java identity-proxy — JVM APM + Profiler + runtime metrics. Proves
+  # DD_TRACE_HTTP_SERVER_PATH_RESOURCE_NAME_MAPPING splits a wildcard route
+  # into per-operation endpoints. Heap leak is driven by the
+  # identity_proxy_heap_leak plugin via the cascade-state volume.
+  identity-proxy-jvm:
+    build:
+      context: ./docker/identity_proxy_apm/app
+      dockerfile: Dockerfile
+    container_name: dd-demo-identity-proxy-jvm
+    depends_on:
+      datadog-agent-sh: {condition: service_started}
+    environment:
+      - DD_AGENT_HOST=datadog-agent-sh
+      - DD_TRACE_AGENT_PORT=8126
+      - CASCADE_STATE_DIR=/cascade-state
+      - JAVA_OPTS=
+          -Ddd.service=identity-proxy
+          -Ddd.env=demo
+          -Ddd.version=1.0.0
+          -Ddd.trace.http.server.path-resource-name-mapping=/identity-v1/**:*
+          -Ddd.runtime.metrics.enabled=true
+          -Ddd.profiling.enabled=true
+          -Ddd.profiling.allocation.enabled=true
+          -Ddd.logs.injection=true
+          -Ddd.tags=dd-demo-toolkit:true,vertical:healthcare,incident_domain:identity-proxy-heap-leak,deployment:cloud,team:digital-health
+          -Ddd.trace.sample.rate=1
+          -Xmx512m
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "java", "service": "identity-proxy", "tags": ["env:demo", "vertical:healthcare", "team:digital-health", "dd-demo-toolkit:true", "incident_domain:identity-proxy-heap-leak"]}]'
+    volumes:
+      - cascade-state:/cascade-state:ro
     restart: unless-stopped
     profiles:
       - mock-app
