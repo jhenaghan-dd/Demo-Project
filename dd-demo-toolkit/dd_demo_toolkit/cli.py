@@ -471,6 +471,41 @@ def cmd_list(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _load_shared_plugins(engine) -> None:
+    """
+    Load plugins from verticals/_shared/plugins/ that run for every vertical.
+    """
+    import importlib.util
+    from dd_demo_toolkit.simulator.plugins import IncidentPlugin
+
+    plugins_dir = Path("verticals") / "_shared" / "plugins"
+    if not plugins_dir.is_dir():
+        return
+
+    for py_file in sorted(plugins_dir.glob("*.py")):
+        if py_file.name.startswith("_"):
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location(
+                f"verticals._shared.plugins.{py_file.stem}", py_file
+            )
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+
+            for attr_name in dir(mod):
+                attr = getattr(mod, attr_name)
+                if (
+                    isinstance(attr, type)
+                    and issubclass(attr, IncidentPlugin)
+                    and attr is not IncidentPlugin
+                ):
+                    plugin = attr()
+                    engine.register_plugin(plugin)
+                    print_success(f"Loaded shared plugin: {plugin.get_incident_name()}")
+        except Exception as exc:
+            print_warning(f"Failed to load shared plugin {py_file.name}: {exc}")
+
+
 def _load_plugins(engine, vertical_name: str) -> None:
     """
     Dynamically discover and load incident plugins for a vertical.
@@ -598,6 +633,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         # sub-vertical overlay is active, also load the overlay's plugins
         # so its scripted incidents (e.g. the BD Pyxis cascade) run on top
         # of the base vertical's existing plugins.
+        _load_shared_plugins(engine)
         _load_plugins(engine, args.vertical)
         if sub_vertical:
             _load_overlay_plugins(engine, args.vertical, sub_vertical)

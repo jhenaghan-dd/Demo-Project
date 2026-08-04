@@ -997,11 +997,11 @@ services:
           -Ddd.profiling.enabled=true
           -Ddd.profiling.allocation.enabled=true
           -Ddd.logs.injection=true
-          -Ddd.tags=dd-demo-toolkit:true,vertical:healthcare,incident_domain:identity-proxy-heap-leak,deployment:cloud,team:digital-health
+          -Ddd.tags=dd-demo-toolkit:true,incident_domain:identity-proxy-heap-leak,deployment:cloud,team:platform-infra
           -Ddd.trace.sample.rate=1
           -Xmx512m
     labels:
-      com.datadoghq.ad.logs: '[{"source": "java", "service": "identity-proxy", "tags": ["env:demo", "vertical:healthcare", "team:digital-health", "dd-demo-toolkit:true", "incident_domain:identity-proxy-heap-leak"]}]'
+      com.datadoghq.ad.logs: '[{"source": "java", "service": "identity-proxy", "tags": ["env:demo", "team:platform-infra", "dd-demo-toolkit:true", "incident_domain:identity-proxy-heap-leak"]}]'
     volumes:
       - cascade-state:/cascade-state:ro
     restart: unless-stopped
