@@ -978,6 +978,9 @@ services:
     build:
       context: ./docker/identity_proxy_apm/app
       dockerfile: Dockerfile
+      args:
+        DD_GIT_REPOSITORY_URL: ${DD_GIT_REPOSITORY_URL:-https://github.com/john-rath/Demo-Project.git}
+        DD_GIT_COMMIT_SHA: ${DD_GIT_COMMIT_SHA:-}
     container_name: dd-demo-identity-proxy-jvm
     depends_on:
       datadog-agent-sh: {condition: service_started}

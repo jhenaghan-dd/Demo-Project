@@ -15,6 +15,11 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /build/target/identity-proxy.jar /app/app.jar
 COPY --from=build /agent/dd-java-agent-1.64.2.jar /app/dd-java-agent.jar
+
+ARG DD_GIT_REPOSITORY_URL
+ARG DD_GIT_COMMIT_SHA
+ENV DD_GIT_REPOSITORY_URL=${DD_GIT_REPOSITORY_URL}
+ENV DD_GIT_COMMIT_SHA=${DD_GIT_COMMIT_SHA}
+
 EXPOSE 8080
-# JAVA_OPTS carries the per-run -Ddd.* flags (service name, mapping option, heap).
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -javaagent:/app/dd-java-agent.jar -jar /app/app.jar"]
