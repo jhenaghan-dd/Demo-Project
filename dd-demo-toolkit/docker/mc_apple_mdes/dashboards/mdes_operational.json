@@ -1,0 +1,1567 @@
+{
+  "title": "MDES Apple Pay Provisioning - Operational Dashboard",
+  "description": "Operational view of Apple Pay (MDES) provisioning across STL/KSC. Synthetic recreation of a Mastercard Splunk dashboard. [dd-demo-toolkit:payments]",
+  "layout_type": "ordered",
+  "template_variables": [
+    {
+      "name": "site",
+      "prefix": "site",
+      "available_values": [
+        "stl",
+        "ksc"
+      ],
+      "default": "*"
+    }
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## MDES Apple Pay Provisioning - Operational Dashboard\nApple inbound, application, and outbound provisioning flow across the **STL** and **KSC** sites.",
+        "background_color": "gray",
+        "font_size": "16",
+        "text_align": "left",
+        "vertical_align": "center",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left",
+        "has_padding": true
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 12,
+        "height": 2
+      }
+    },
+    {
+      "definition": {
+        "title": "Apple Inbound Metrics at API Gateway - STL",
+        "type": "group",
+        "layout_type": "ordered",
+        "background_color": "vivid_blue",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Inbound Traffic Volume - STL Gateway (by operation)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:INBOUND @operation:REQUEST site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@op_name",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "Inbound Response Time p90 (ms) - STL Gateway",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:INBOUND @operation:RESPONSE site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "pc90",
+                        "metric": "@response_time_ms"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@op_name",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "pc90",
+                            "order": "desc",
+                            "metric": "@response_time_ms"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "HTTP Response Trend - STL Gateway (log scale)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:INBOUND @operation:RESPONSE site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@gwhttpstatus",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ],
+              "yaxis": {
+                "scale": "log",
+                "include_zero": false
+              }
+            },
+            "layout": {
+              "x": 0,
+              "y": 4,
+              "width": 12,
+              "height": 3
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 2,
+        "width": 12,
+        "height": 8
+      }
+    },
+    {
+      "definition": {
+        "title": "Apple Inbound Metrics at API Gateway - KSC",
+        "type": "group",
+        "layout_type": "ordered",
+        "background_color": "vivid_green",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Inbound Traffic Volume - KSC Gateway (by operation)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:INBOUND @operation:REQUEST site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@op_name",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "Inbound Response Time p90 (ms) - KSC Gateway",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:INBOUND @operation:RESPONSE site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "pc90",
+                        "metric": "@response_time_ms"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@op_name",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "pc90",
+                            "order": "desc",
+                            "metric": "@response_time_ms"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "HTTP Response Trend - KSC Gateway (log scale)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:INBOUND @operation:RESPONSE site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@gwhttpstatus",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ],
+              "yaxis": {
+                "scale": "log",
+                "include_zero": false
+              }
+            },
+            "layout": {
+              "x": 0,
+              "y": 4,
+              "width": 12,
+              "height": 3
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 10,
+        "width": 12,
+        "height": 8
+      }
+    },
+    {
+      "definition": {
+        "title": "Metrics at Application",
+        "type": "group",
+        "layout_type": "ordered",
+        "background_color": "gray",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Application Traffic - STL (by operation)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-mntbwltorc-wallet-api @msg.message:\"Request Details. FINAL_LOG_STMT\" site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@msg.operation",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "Application Traffic - KSC (by operation)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-mntbwltorc-wallet-api @msg.message:\"Request Details. FINAL_LOG_STMT\" site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@msg.operation",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "Provisioning Backlog - STL (TokenProfile_2xConsumer)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-mntbwltorc-wallet-api @msg.consumer:TokenProfile_2xConsumer site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@msg.backlog_depth"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 0,
+              "y": 4,
+              "width": 6,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "title": "Provisioning Backlog - KSC (TokenProfile_2xConsumer)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-mntbwltorc-wallet-api @msg.consumer:TokenProfile_2xConsumer site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@msg.backlog_depth"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 6,
+              "y": 4,
+              "width": 6,
+              "height": 3
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 18,
+        "width": 12,
+        "height": 8
+      }
+    },
+    {
+      "definition": {
+        "title": "Application Metrics - PCF Status & Exceptions",
+        "type": "group",
+        "layout_type": "ordered",
+        "background_color": "gray",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Mandatory PCF Apps - instances (0 = DOWN)",
+              "type": "query_table",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "ksc",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-mntbwltorc-wallet-api @app.cf_app_name:* site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@app.instances"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@app.cf_app_name",
+                          "limit": 100,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "data_source": "logs",
+                      "name": "stl",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-mntbwltorc-wallet-api @app.cf_app_name:* site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@app.instances"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@app.cf_app_name",
+                          "limit": 100,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "ksc",
+                      "alias": "KSC"
+                    },
+                    {
+                      "formula": "stl",
+                      "alias": "STL"
+                    }
+                  ],
+                  "sort": {
+                    "count": 100,
+                    "order_by": [
+                      {
+                        "type": "formula",
+                        "index": 0,
+                        "order": "desc"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6
+            }
+          },
+          {
+            "definition": {
+              "title": "Cross-site MDES Standalone Status (1 = UP, 0 = DOWN)",
+              "type": "query_table",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "h_ksc02",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-standalone @standalone.host:mcs2ksc02"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@standalone.up"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@standalone.component",
+                          "limit": 100,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "data_source": "logs",
+                      "name": "h_ksc03",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-standalone @standalone.host:mcs2ksc03"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@standalone.up"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@standalone.component",
+                          "limit": 100,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "data_source": "logs",
+                      "name": "h_ksc04",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-standalone @standalone.host:mcs2ksc04"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@standalone.up"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@standalone.component",
+                          "limit": 100,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "data_source": "logs",
+                      "name": "h_stl52",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-standalone @standalone.host:mcs2stl52"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@standalone.up"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@standalone.component",
+                          "limit": 100,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "data_source": "logs",
+                      "name": "h_stl53",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-standalone @standalone.host:mcs2stl53"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@standalone.up"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@standalone.component",
+                          "limit": 100,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "data_source": "logs",
+                      "name": "h_stl54",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-standalone @standalone.host:mcs2stl54"
+                      },
+                      "compute": {
+                        "aggregation": "max",
+                        "metric": "@standalone.up"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@standalone.component",
+                          "limit": 100,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "h_ksc02",
+                      "alias": "mcs2ksc02"
+                    },
+                    {
+                      "formula": "h_ksc03",
+                      "alias": "mcs2ksc03"
+                    },
+                    {
+                      "formula": "h_ksc04",
+                      "alias": "mcs2ksc04"
+                    },
+                    {
+                      "formula": "h_stl52",
+                      "alias": "mcs2stl52"
+                    },
+                    {
+                      "formula": "h_stl53",
+                      "alias": "mcs2stl53"
+                    },
+                    {
+                      "formula": "h_stl54",
+                      "alias": "mcs2stl54"
+                    }
+                  ],
+                  "sort": {
+                    "count": 100,
+                    "order_by": [
+                      {
+                        "type": "formula",
+                        "index": 0,
+                        "order": "desc"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "layout": {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6
+            }
+          },
+          {
+            "definition": {
+              "title": "Application Exceptions - STL",
+              "type": "query_table",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "c",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-mntbwltorc-wallet-api @msg.message:\"Request Details. FINAL_LOG_STMT\" -@msg.statuscode:200 site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@msg.operation",
+                          "limit": 8,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@msg.statuscode",
+                          "limit": 8,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@msg.networksubstatuscode",
+                          "limit": 4,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@msg.statusmessage",
+                          "limit": 4,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@msg.mdeserrorcode",
+                          "limit": 4,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "c",
+                      "alias": "Count"
+                    }
+                  ],
+                  "sort": {
+                    "count": 100,
+                    "order_by": [
+                      {
+                        "type": "formula",
+                        "index": 0,
+                        "order": "desc"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "layout": {
+              "x": 0,
+              "y": 6,
+              "width": 6,
+              "height": 6
+            }
+          },
+          {
+            "definition": {
+              "title": "Application Exceptions - KSC",
+              "type": "query_table",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "c",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:mdes-mntbwltorc-wallet-api @msg.message:\"Request Details. FINAL_LOG_STMT\" -@msg.statuscode:200 site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@msg.operation",
+                          "limit": 8,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@msg.statuscode",
+                          "limit": 8,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@msg.networksubstatuscode",
+                          "limit": 4,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@msg.statusmessage",
+                          "limit": 4,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@msg.mdeserrorcode",
+                          "limit": 4,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "c",
+                      "alias": "Count"
+                    }
+                  ],
+                  "sort": {
+                    "count": 100,
+                    "order_by": [
+                      {
+                        "type": "formula",
+                        "index": 0,
+                        "order": "desc"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "layout": {
+              "x": 6,
+              "y": 6,
+              "width": 6,
+              "height": 6
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 26,
+        "width": 12,
+        "height": 13
+      }
+    },
+    {
+      "definition": {
+        "title": "Apple Outbound Metrics at API Gateway - STL",
+        "type": "group",
+        "layout_type": "ordered",
+        "background_color": "vivid_blue",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Outbound Traffic Volume - STL Gateway (by operation)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:OUTBOUND @operation:REQUEST site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@op_name",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "Outbound Response Time p90 (ms) - STL Gateway",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:OUTBOUND @operation:RESPONSE site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "pc90",
+                        "metric": "@response_time_ms"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@op_name",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "pc90",
+                            "order": "desc",
+                            "metric": "@response_time_ms"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "Outbound HTTP Response Trend - STL (log scale)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:OUTBOUND @operation:RESPONSE site:stl"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@gwhttpstatus",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ],
+              "yaxis": {
+                "scale": "log",
+                "include_zero": false
+              }
+            },
+            "layout": {
+              "x": 0,
+              "y": 4,
+              "width": 12,
+              "height": 3
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 39,
+        "width": 12,
+        "height": 8
+      }
+    },
+    {
+      "definition": {
+        "title": "Apple Outbound Metrics at API Gateway - KSC",
+        "type": "group",
+        "layout_type": "ordered",
+        "background_color": "vivid_green",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Outbound Traffic Volume - KSC Gateway (by operation)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:OUTBOUND @operation:REQUEST site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@op_name",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "Outbound Response Time p90 (ms) - KSC Gateway",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:OUTBOUND @operation:RESPONSE site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "pc90",
+                        "metric": "@response_time_ms"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@op_name",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "pc90",
+                            "order": "desc",
+                            "metric": "@response_time_ms"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "line",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ]
+            },
+            "layout": {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "definition": {
+              "title": "Outbound HTTP Response Trend - KSC (log scale)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "logs",
+                      "name": "q",
+                      "indexes": [
+                        "*"
+                      ],
+                      "search": {
+                        "query": "service:apigw @gwdestinationtype:OUTBOUND @operation:RESPONSE site:ksc"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@gwhttpstatus",
+                          "limit": 15,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q"
+                    }
+                  ],
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "max",
+                "value"
+              ],
+              "yaxis": {
+                "scale": "log",
+                "include_zero": false
+              }
+            },
+            "layout": {
+              "x": 0,
+              "y": 4,
+              "width": 12,
+              "height": 3
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 47,
+        "width": 12,
+        "height": 8
+      }
+    }
+  ],
+  "reflow_type": "fixed"
+}
