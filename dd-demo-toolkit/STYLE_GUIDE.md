@@ -284,6 +284,55 @@ dashboards inherit the parent vertical's prefix.
   Run this after `make up` to confirm the simulator is emitting every
   metric referenced in every dashboard.
 
+### 1.10 Host-tags API (`PUT /api/v1/tags/hosts/{host}`) `source` must be a recognized value
+
+When attaching host-level tags (e.g. for API-submitted synthetic hosts like the
+waste-management fleet), the `source` query param must be one of Datadog's known
+tag sources (`user`, `chef`, `puppet`, `aws`, …). An arbitrary label fails:
+
+```
+404 - {"errors":["Provided source does not exist"]}
+```
+
+❌ `update_host_tags(host, tags, source="wm-fleet")`
+✅ `update_host_tags(host, tags)` — defaults to `source="user"`, the correct
+   source for tags set programmatically via the API. The failure is silent if
+   your caller swallows the 404 (symptom: host objects show no tags even though
+   metric-level tags query fine).
+
+**Related — submitting synthetic hosts via the metrics API:** `POST /api/v2/series`
+with `resources:[{name:<host>, type:"host"}]` *does* register the name as a real
+infrastructure host object (verified: 94/96 trucks appeared in the host inventory
+within ~2 min). The host tag values, however, come from the host-tags API above —
+not from the metric tags — so both calls are needed for the Host Map page to
+group/filter by them.
+
+### 1.11 The engine emits `device_model` — NOT `model`. Split `by {device_model}`.
+
+The simulator tags every device metric with a fixed attribute set
+(`_emit_device_metrics`): `device_id`, `device_type`, `device_manufacturer`,
+**`device_model`**, `device_firmware`, `category`, `battery_powered`, plus the
+`locations.dimensions` keys (e.g. `metro`, `plant`), plus `service` if set.
+There is **no `model` tag** — the device config's `model:` field surfaces as
+`device_model:`.
+
+So a widget/monitor that groups `by {model}` (or filters `{model:…}`) returns
+**no groups** — an empty per-model split that looks like a rendering bug.
+
+✅ `avg:wm.agent_eval.f1_score{device_type:agent_eval_node} by {device_model}`
+❌ `avg:wm.agent_eval.f1_score{device_type:agent_eval_node} by {model}` (empty)
+
+Verify a new vertical's dashboard/monitor tags against the real emitted set by
+building the engine in-process and inspecting the attributes passed to the
+instruments — the 34-query cross-check used for `waste_management` caught this.
+**Known latent bug:** the EY overlay (`finance/overlays/ey`) still splits
+`by {model}`; its scorecard/monitors don't actually split per model until
+changed to `device_model`.
+
+Service metrics (`{env_prefix}.app.requests_total` / `.errors_total` /
+`.latency_ms`, emitted by the `services:` block) carry `service_name` instead —
+filter those with `{service_name:…}`.
+
 ---
 
 ## 2. Tag standards (strict)
@@ -475,6 +524,23 @@ Use `custom_unit` (for a unit label after the number) or `unit` (auto) instead, 
 
 ❌ `"suffix": "%"` — API returns 400 Invalid widget definition.
 ✅ `"custom_unit": "%"` — or omit if the metric name implies the unit.
+
+### 4.2d Dashboard top-level `tags` only accepts keys `team` and `ai`
+
+The dashboard `tags` field is **not** an arbitrary tag list. Putting the
+toolkit's usual markers there fails the whole create:
+
+```
+400 - {"errors":["Invalid tag format. Valid tag keys are: team, ai."]}
+```
+
+❌ `"tags": ["dd-demo-toolkit:true", "vertical:waste_management", "service:wm-fleet"]`
+✅ `"tags": []` — and identify the dashboard for teardown via the
+   `[dd-demo-toolkit:<vertical>]` marker in the **description** (§2.6). This is
+   *why* §2.6 uses the description marker for dashboards — the API rejects the
+   tag keys teardown would otherwise filter on. Metric-level tags (metro,
+   service, …) still work fine inside widget *queries*; this restriction is
+   only on the dashboard object's own `tags` field.
 
 ### 4.3 Template variables
 Always include at least:
@@ -802,6 +868,7 @@ overlay-only teardown.
 - [ ] All scalar widgets have `aggregator:` set explicitly
 - [ ] No `suffix:` field on `query_value` widgets (use `custom_unit:` or omit)
 - [ ] Dashboard timeseries requests using `queries:` have `response_format: "timeseries"` and no legacy `on_right_yaxis` at root
+- [ ] Dashboard top-level `tags` is `[]` (only `team`/`ai` keys are accepted; teardown IDs by the `[dd-demo-toolkit:<vertical>]` description marker — §4.2d)
 - [ ] SLO metric queries use `.as_count()` on both numerator and denominator
 - [ ] Notebook `type:` is one of: `postmortem, runbook, investigation, documentation, report, workspace, threat_hunting`
 - [ ] **After editing any file under `verticals/`, run `make build` before `make setup`** — the `verticals/` directory is baked into the Docker image at build time (no live volume mount). `make setup` alone re-deploys whatever was in the image when it was last built, silently deploying stale content and making the live dashboard look unchanged.
@@ -834,4 +901,4 @@ When you hit a new bug class — *file the fix here* before closing the
 ticket. The whole point of this document is that future contributors
 shouldn't repeat the same investigation.
 
-Last updated: 2026-06-03 (dashboard data coverage directive — §1.9; cases API quirks — §1.8).
+Last updated: 2026-07-27 (`device_model` vs `model` grouping — §1.11; caught building the waste_management vertical, also affects the EY overlay). Earlier 2026-07-26 (dashboard `tags` key allowlist — §4.2d; host-tags API `source` — §1.10; verified live against the waste-management fleet). Previously: 2026-06-03 (dashboard data coverage — §1.9; cases API quirks — §1.8).
