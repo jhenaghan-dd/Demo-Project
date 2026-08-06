@@ -50,7 +50,7 @@ notebooks:
                 queries:
                   - data_source: "metrics"
                     name: "f1"
-                    query: "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {model}"
+                    query: "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {device_model}"
                 formulas:
                   - formula: "f1"
                     alias: "F1 by model"
@@ -82,10 +82,10 @@ notebooks:
                 queries:
                   - data_source: "metrics"
                     name: "precision"
-                    query: "avg:finserv.llm_eval.precision{device_type:llm_eval_node} by {model}"
+                    query: "avg:finserv.llm_eval.precision{device_type:llm_eval_node} by {device_model}"
                   - data_source: "metrics"
                     name: "recall"
-                    query: "avg:finserv.llm_eval.recall{device_type:llm_eval_node} by {model}"
+                    query: "avg:finserv.llm_eval.recall{device_type:llm_eval_node} by {device_model}"
                 formulas:
                   - formula: "precision"
                     alias: "Precision by model"
@@ -147,15 +147,15 @@ notebooks:
                 queries:
                   - data_source: "metrics"
                     name: "f1"
-                    query: "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {model}"
+                    query: "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {device_model}"
                     aggregator: "avg"
                   - data_source: "metrics"
                     name: "cost"
-                    query: "avg:finserv.llm_eval.cost_per_1k_tokens_usd{device_type:llm_eval_node} by {model}"
+                    query: "avg:finserv.llm_eval.cost_per_1k_tokens_usd{device_type:llm_eval_node} by {device_model}"
                     aggregator: "avg"
                   - data_source: "metrics"
                     name: "latency"
-                    query: "avg:finserv.llm_eval.avg_latency_ms{device_type:llm_eval_node} by {model}"
+                    query: "avg:finserv.llm_eval.avg_latency_ms{device_type:llm_eval_node} by {device_model}"
                     aggregator: "avg"
                 formulas:
                   - formula: "f1"

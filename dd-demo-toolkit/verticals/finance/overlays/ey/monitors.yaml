@@ -20,8 +20,8 @@ monitors:
 
   - name: "[Finance/EY] LLM F1 Score Regression"
     type: "query alert"
-    query: "avg(last_30m):avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {model} < 0.75"
-    message: "📉 LLM F1 score dropped below 0.75 for {{model.name}}. Likely a prompt-template regression or a data-distribution shift on the eval set. Compare against the model-comparison playground before promoting."
+    query: "avg(last_30m):avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {device_model} < 0.75"
+    message: "📉 LLM F1 score dropped below 0.75 for {{device_model.name}}. Likely a prompt-template regression or a data-distribution shift on the eval set. Compare against the model-comparison playground before promoting."
     tags:
       - "vertical:finance"
       - "dd-demo-toolkit:true"
@@ -32,8 +32,8 @@ monitors:
 
   - name: "[Finance/EY] LLM Precision Regression"
     type: "query alert"
-    query: "avg(last_30m):avg:finserv.llm_eval.precision{device_type:llm_eval_node} by {model} < 0.78"
-    message: "🎯 LLM precision below 0.78 for {{model.name}}. The model is generating more false positives — risk team will see more reviewable items per case."
+    query: "avg(last_30m):avg:finserv.llm_eval.precision{device_type:llm_eval_node} by {device_model} < 0.78"
+    message: "🎯 LLM precision below 0.78 for {{device_model.name}}. The model is generating more false positives — risk team will see more reviewable items per case."
     tags:
       - "vertical:finance"
       - "dd-demo-toolkit:true"
@@ -44,8 +44,8 @@ monitors:
 
   - name: "[Finance/EY] LLM Recall Regression"
     type: "query alert"
-    query: "avg(last_30m):avg:finserv.llm_eval.recall{device_type:llm_eval_node} by {model} < 0.72"
-    message: "🔍 LLM recall below 0.72 for {{model.name}}. The model is missing true positives — risk findings may slip through silently."
+    query: "avg(last_30m):avg:finserv.llm_eval.recall{device_type:llm_eval_node} by {device_model} < 0.72"
+    message: "🔍 LLM recall below 0.72 for {{device_model.name}}. The model is missing true positives — risk findings may slip through silently."
     tags:
       - "vertical:finance"
       - "dd-demo-toolkit:true"
@@ -56,8 +56,8 @@ monitors:
 
   - name: "[Finance/EY] LLM Relevance Regression"
     type: "query alert"
-    query: "avg(last_30m):avg:finserv.llm_eval.relevance{device_type:llm_eval_node} by {model} < 0.80"
-    message: "🧭 LLM relevance below 0.80 for {{model.name}}. Outputs drifting off-topic from the eval prompts — check retrieval / prompt-template version."
+    query: "avg(last_30m):avg:finserv.llm_eval.relevance{device_type:llm_eval_node} by {device_model} < 0.80"
+    message: "🧭 LLM relevance below 0.80 for {{device_model.name}}. Outputs drifting off-topic from the eval prompts — check retrieval / prompt-template version."
     tags:
       - "vertical:finance"
       - "dd-demo-toolkit:true"
@@ -69,8 +69,8 @@ monitors:
   # ----- Hallucination rate (per-model) --------------------------------
   - name: "[Finance/EY] LLM Hallucination Rate Elevated"
     type: "query alert"
-    query: "avg(last_15m):avg:finserv.llm_eval.hallucination_rate_pct{device_type:llm_eval_node} by {model} > 6"
-    message: "👻 Hallucination rate >6% for {{model.name}}. Consider failing back to the previous prompt-template version or routing to a higher-fidelity model via the AI gateway."
+    query: "avg(last_15m):avg:finserv.llm_eval.hallucination_rate_pct{device_type:llm_eval_node} by {device_model} > 6"
+    message: "👻 Hallucination rate >6% for {{device_model.name}}. Consider failing back to the previous prompt-template version or routing to a higher-fidelity model via the AI gateway."
     tags:
       - "vertical:finance"
       - "dd-demo-toolkit:true"
@@ -85,8 +85,8 @@ monitors:
   # consumption?" Token-cost monitor anchors the cost half of that.
   - name: "[Finance/EY] LLM Token Cost Anomaly"
     type: "query alert"
-    query: "avg(last_30m):avg:finserv.llm_eval.cost_per_1k_tokens_usd{device_type:llm_eval_node} by {model} > 0.030"
-    message: "💸 Token cost above $0.030 / 1k tokens for {{model.name}}. Validate against the model-playground comparison — consider routing low-stakes evals to gpt-4o-mini via the AI gateway."
+    query: "avg(last_30m):avg:finserv.llm_eval.cost_per_1k_tokens_usd{device_type:llm_eval_node} by {device_model} > 0.030"
+    message: "💸 Token cost above $0.030 / 1k tokens for {{device_model.name}}. Validate against the model-playground comparison — consider routing low-stakes evals to gpt-4o-mini via the AI gateway."
     tags:
       - "vertical:finance"
       - "dd-demo-toolkit:true"
@@ -98,8 +98,8 @@ monitors:
   # Anchors Scott's "policy enforcement on LLM layer" follow-up ask.
   - name: "[Finance/EY] AI Gateway Guardrail Block Rate Elevated"
     type: "query alert"
-    query: "avg(last_15m):avg:finserv.llm_eval.guardrail_block_rate_pct{device_type:llm_eval_node} by {model} > 3"
-    message: "🛡️ Guardrail block rate >3% for {{model.name}}. Likely a prompt-injection campaign or a new client-engagement with unfamiliar input distribution. Inspect the AI gateway audit trail."
+    query: "avg(last_15m):avg:finserv.llm_eval.guardrail_block_rate_pct{device_type:llm_eval_node} by {device_model} > 3"
+    message: "🛡️ Guardrail block rate >3% for {{device_model.name}}. Likely a prompt-injection campaign or a new client-engagement with unfamiliar input distribution. Inspect the AI gateway audit trail."
     tags:
       - "vertical:finance"
       - "dd-demo-toolkit:true"

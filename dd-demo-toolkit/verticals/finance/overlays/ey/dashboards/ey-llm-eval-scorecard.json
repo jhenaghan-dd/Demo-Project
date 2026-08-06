@@ -20,7 +20,7 @@
       "definition": {
         "title": "F1 (latest, by model)",
         "type": "query_value",
-        "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {model}", "aggregator": "last"}], "response_format": "scalar", "conditional_formats": [{"comparator": ">=", "value": 0.85, "palette": "white_on_green"}, {"comparator": ">=", "value": 0.75, "palette": "white_on_yellow"}, {"comparator": "<", "value": 0.75, "palette": "white_on_red"}]}],
+        "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {device_model}", "aggregator": "last"}], "response_format": "scalar", "conditional_formats": [{"comparator": ">=", "value": 0.85, "palette": "white_on_green"}, {"comparator": ">=", "value": 0.75, "palette": "white_on_yellow"}, {"comparator": "<", "value": 0.75, "palette": "white_on_red"}]}],
         "autoscale": true,
         "precision": 2
       },
@@ -30,7 +30,7 @@
       "definition": {
         "title": "Precision (latest, by model)",
         "type": "query_value",
-        "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:finserv.llm_eval.precision{device_type:llm_eval_node} by {model}", "aggregator": "last"}], "response_format": "scalar"}],
+        "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:finserv.llm_eval.precision{device_type:llm_eval_node} by {device_model}", "aggregator": "last"}], "response_format": "scalar"}],
         "autoscale": true,
         "precision": 2
       },
@@ -40,7 +40,7 @@
       "definition": {
         "title": "Recall (latest, by model)",
         "type": "query_value",
-        "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:finserv.llm_eval.recall{device_type:llm_eval_node} by {model}", "aggregator": "last"}], "response_format": "scalar"}],
+        "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:finserv.llm_eval.recall{device_type:llm_eval_node} by {device_model}", "aggregator": "last"}], "response_format": "scalar"}],
         "autoscale": true,
         "precision": 2
       },
@@ -50,7 +50,7 @@
       "definition": {
         "title": "Relevance (latest, by model)",
         "type": "query_value",
-        "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:finserv.llm_eval.relevance{device_type:llm_eval_node} by {model}", "aggregator": "last"}], "response_format": "scalar"}],
+        "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:finserv.llm_eval.relevance{device_type:llm_eval_node} by {device_model}", "aggregator": "last"}], "response_format": "scalar"}],
         "autoscale": true,
         "precision": 2
       },
@@ -64,7 +64,7 @@
         "requests": [
           {
             "response_format": "timeseries",
-            "queries": [{"data_source": "metrics", "name": "f1", "query": "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {model}"}],
+            "queries": [{"data_source": "metrics", "name": "f1", "query": "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {device_model}"}],
             "formulas": [{"formula": "f1", "alias": "F1 by model"}],
             "display_type": "line"
           }
@@ -81,8 +81,8 @@
           {
             "response_format": "timeseries",
             "queries": [
-              {"data_source": "metrics", "name": "p", "query": "avg:finserv.llm_eval.precision{device_type:llm_eval_node} by {model}"},
-              {"data_source": "metrics", "name": "r", "query": "avg:finserv.llm_eval.recall{device_type:llm_eval_node} by {model}"}
+              {"data_source": "metrics", "name": "p", "query": "avg:finserv.llm_eval.precision{device_type:llm_eval_node} by {device_model}"},
+              {"data_source": "metrics", "name": "r", "query": "avg:finserv.llm_eval.recall{device_type:llm_eval_node} by {device_model}"}
             ],
             "formulas": [
               {"formula": "p", "alias": "Precision"},
@@ -102,7 +102,7 @@
         "requests": [
           {
             "response_format": "timeseries",
-            "queries": [{"data_source": "metrics", "name": "h", "query": "avg:finserv.llm_eval.hallucination_rate_pct{device_type:llm_eval_node} by {model}"}],
+            "queries": [{"data_source": "metrics", "name": "h", "query": "avg:finserv.llm_eval.hallucination_rate_pct{device_type:llm_eval_node} by {device_model}"}],
             "formulas": [{"formula": "h", "alias": "Hallucination %"}],
             "display_type": "area"
           }
@@ -118,7 +118,7 @@
         "requests": [
           {
             "response_format": "timeseries",
-            "queries": [{"data_source": "metrics", "name": "g", "query": "avg:finserv.llm_eval.guardrail_block_rate_pct{device_type:llm_eval_node} by {model}"}],
+            "queries": [{"data_source": "metrics", "name": "g", "query": "avg:finserv.llm_eval.guardrail_block_rate_pct{device_type:llm_eval_node} by {device_model}"}],
             "formulas": [{"formula": "g", "alias": "Guardrail block %"}],
             "display_type": "line"
           }
@@ -135,10 +135,10 @@
           {
             "response_format": "scalar",
             "queries": [
-              {"data_source": "metrics", "name": "f1", "query": "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {model}", "aggregator": "avg"},
-              {"data_source": "metrics", "name": "latency", "query": "avg:finserv.llm_eval.avg_latency_ms{device_type:llm_eval_node} by {model}", "aggregator": "avg"},
-              {"data_source": "metrics", "name": "cost", "query": "avg:finserv.llm_eval.cost_per_1k_tokens_usd{device_type:llm_eval_node} by {model}", "aggregator": "avg"},
-              {"data_source": "metrics", "name": "halluc", "query": "avg:finserv.llm_eval.hallucination_rate_pct{device_type:llm_eval_node} by {model}", "aggregator": "avg"}
+              {"data_source": "metrics", "name": "f1", "query": "avg:finserv.llm_eval.f1_score{device_type:llm_eval_node} by {device_model}", "aggregator": "avg"},
+              {"data_source": "metrics", "name": "latency", "query": "avg:finserv.llm_eval.avg_latency_ms{device_type:llm_eval_node} by {device_model}", "aggregator": "avg"},
+              {"data_source": "metrics", "name": "cost", "query": "avg:finserv.llm_eval.cost_per_1k_tokens_usd{device_type:llm_eval_node} by {device_model}", "aggregator": "avg"},
+              {"data_source": "metrics", "name": "halluc", "query": "avg:finserv.llm_eval.hallucination_rate_pct{device_type:llm_eval_node} by {device_model}", "aggregator": "avg"}
             ],
             "formulas": [
               {"formula": "f1", "alias": "F1"},
