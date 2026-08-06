@@ -1,0 +1,206 @@
+{
+  "title": "WasteManagement — Fleet Operations (Fleet-at-Scale)",
+  "description": "[dd-demo-toolkit:waste_management] Fleet-at-scale demo. Every collection truck is a synthetic Datadog host (wm.truck.* + system.* tagged host:wm-truck-NNNN) emitted by docker/waste_management. The Host Map below shows the whole fleet as infrastructure — grouped by metro, coloured by engine temperature — alongside the live Leaflet fleet map served at http://localhost:8088.",
+  "layout_type": "ordered",
+  "reflow_type": "fixed",
+  "tags": [],
+  "template_variables": [
+    {"name": "metro", "prefix": "metro", "available_values": [], "default": "*"},
+    {"name": "region", "prefix": "region", "available_values": [], "default": "*"}
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## 🛻 WasteManagement — Fleet at Scale\nEvery truck below is a **Datadog host**, created by the fleet simulator (no cloud instances). Host Map = the fleet as infrastructure; the live GPS map with moving trucks is the Leaflet showpiece at **http://localhost:8088**.",
+        "background_color": "green",
+        "font_size": "14",
+        "text_align": "left",
+        "vertical_align": "center",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left",
+        "has_padding": true
+      },
+      "layout": {"x": 0, "y": 0, "width": 12, "height": 1}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Fleet size (hosts reporting)",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {"name": "q", "data_source": "metrics", "query": "avg:wm.truck.load_pct{$metro,$region} by {host}", "aggregator": "last"}
+            ],
+            "formulas": [{"formula": "count_not_null(q)"}]
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {"x": 0, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Avg hopper load %",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {"name": "q", "data_source": "metrics", "query": "avg:wm.truck.load_pct{$metro,$region}", "aggregator": "avg"}
+            ],
+            "formulas": [{"formula": "q"}]
+          }
+        ],
+        "autoscale": true,
+        "custom_unit": "%",
+        "precision": 0
+      },
+      "layout": {"x": 3, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Hottest engine (°F)",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {"name": "q", "data_source": "metrics", "query": "max:wm.truck.engine_temp_f{$metro,$region}", "aggregator": "max"}
+            ],
+            "formulas": [{"formula": "q"}],
+            "conditional_formats": [
+              {"comparator": ">=", "value": 226, "palette": "white_on_red"},
+              {"comparator": ">=", "value": 220, "palette": "white_on_yellow"},
+              {"comparator": "<", "value": 220, "palette": "white_on_green"}
+            ]
+          }
+        ],
+        "autoscale": true,
+        "custom_unit": "°F",
+        "precision": 0
+      },
+      "layout": {"x": 6, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Lowest fuel %",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {"name": "q", "data_source": "metrics", "query": "min:wm.truck.fuel_pct{$metro,$region}", "aggregator": "min"}
+            ],
+            "formulas": [{"formula": "q"}],
+            "conditional_formats": [
+              {"comparator": "<=", "value": 15, "palette": "white_on_red"},
+              {"comparator": "<=", "value": 30, "palette": "white_on_yellow"},
+              {"comparator": ">", "value": 30, "palette": "white_on_green"}
+            ]
+          }
+        ],
+        "autoscale": true,
+        "custom_unit": "%",
+        "precision": 0
+      },
+      "layout": {"x": 9, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "hostmap",
+        "title": "Fleet — every truck is a host (grouped by metro, coloured by engine temp)",
+        "requests": {
+          "fill": {"q": "avg:wm.truck.engine_temp_f{$metro,$region} by {host}"}
+        },
+        "node_type": "host",
+        "no_metric_hosts": false,
+        "no_group_hosts": false,
+        "group": ["metro"],
+        "scope": ["service:wm-fleet"],
+        "style": {
+          "palette": "green_to_yellow_to_red",
+          "palette_flip": false,
+          "fill_min": "185",
+          "fill_max": "228"
+        }
+      },
+      "layout": {"x": 0, "y": 3, "width": 8, "height": 5}
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Hottest trucks (engine °F)",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {"name": "q", "data_source": "metrics", "query": "avg:wm.truck.engine_temp_f{$metro,$region} by {host}", "aggregator": "avg"}
+            ],
+            "formulas": [{"formula": "q", "limit": {"count": 10, "order": "desc"}}]
+          }
+        ]
+      },
+      "layout": {"x": 8, "y": 3, "width": 4, "height": 5}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Avg engine temp by metro",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              {"name": "q", "data_source": "metrics", "query": "avg:wm.truck.engine_temp_f{$metro,$region} by {metro}"}
+            ],
+            "formulas": [{"formula": "q"}],
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 8, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Avg hopper load & trucks collecting, by metro",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              {"name": "q", "data_source": "metrics", "query": "avg:wm.truck.load_pct{$metro,$region} by {metro}"}
+            ],
+            "formulas": [{"formula": "q"}],
+            "display_type": "area"
+          }
+        ]
+      },
+      "layout": {"x": 6, "y": 8, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "note",
+        "content": "### 🗺️ Live GPS fleet map — embedded\nThe custom Leaflet fleet map, running live inside Datadog via the iframe below. Requires an HTTPS URL reachable by your browser (see `WM_FLEET_MAP_URL` in docker/waste_management/README.md — free Cloudflare quick tunnel).",
+        "background_color": "gray",
+        "font_size": "14",
+        "text_align": "left",
+        "vertical_align": "center",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left",
+        "has_padding": true
+      },
+      "layout": {"x": 0, "y": 11, "width": 12, "height": 1}
+    },
+    {
+      "definition": {
+        "type": "iframe",
+        "url": "__WM_FLEET_MAP_URL__"
+      },
+      "layout": {"x": 0, "y": 12, "width": 12, "height": 7}
+    }
+  ]
+}

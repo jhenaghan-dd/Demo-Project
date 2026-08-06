@@ -1,0 +1,4 @@
+# WM Operations Agent — agentic LLM Observability demo (traces + experiments).
+# Agentless: talks straight to Datadog with DD_API_KEY (no Agent, no collector).
+# Experiments (wm_ops_experiments.py) additionally need DD_APP_KEY.
+ddtrace>=2.8

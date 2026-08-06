@@ -1,0 +1,26 @@
+# WM Operations Agent — agentic LLM Observability demo.
+# Plain OCI image for a NON-Docker runtime (Podman, nerdctl, Apple `container`,
+# Finch) — `docker build/run` also works. Agentless: needs only outbound HTTPS
+# to Datadog.
+#
+#   podman build -t wm-ops-agent -f Containerfile .
+#   # live traces:
+#   podman run --rm -e DD_API_KEY=$DD_API_KEY -e DD_SITE=${DD_SITE:-datadoghq.com} \
+#       wm-ops-agent --count 200
+#   # experiments (override entrypoint; needs DD_APP_KEY):
+#   podman run --rm -e DD_API_KEY=$DD_API_KEY -e DD_APP_KEY=$DD_APP_KEY \
+#       -e DD_SITE=${DD_SITE:-datadoghq.com} \
+#       --entrypoint python wm-ops-agent wm_ops_experiments.py
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY wm_ops_agent.py wm_ops_experiments.py ./
+
+ENV DD_SITE=datadoghq.com \
+    DD_LLMOBS_ML_APP=wm-ops-agent \
+    DD_SERVICE=wm-ops-agent \
+    DD_ENV=prod
+
+ENTRYPOINT ["python", "wm_ops_agent.py"]

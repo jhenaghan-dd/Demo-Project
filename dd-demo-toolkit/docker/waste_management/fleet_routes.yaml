@@ -1,0 +1,63 @@
+# WasteManagement fleet-at-scale topology.
+#
+# Drives the synthetic fleet: every truck becomes a distinct Datadog *host*
+# object (system.* + wm.truck.* metrics tagged host:wm-truck-NNNN) AND a live
+# dot on the fleet map. No AWS, no per-truck container — one simulator process
+# animates the whole fleet and submits per-host metrics via the metrics API.
+#
+# Each metro has a depot/landfill anchor (lat/lon) and a number of collection
+# routes; routes themselves are generated as street-grid random-walk polylines
+# in fleet_sim.py (seeded, so they're stable across runs). Scale the fleet by
+# editing routes_per_metro / trucks_per_route here — not by editing code.
+
+fleet:
+  # Global cadence. tick_seconds is how often every truck advances + re-emits.
+  tick_seconds: 5
+  # Metrics are submitted to Datadog every `emit_every_ticks` ticks (batched)
+  # to stay well under the metrics API rate limit even at large fleet sizes.
+  emit_every_ticks: 2
+  routes_per_metro: 6
+  trucks_per_route: 4
+  # Deterministic route geometry — same seed => same street polylines.
+  seed: 7788
+
+metros:
+  # WasteManagement is HQ'd in Houston — lead with it.
+  - id: houston
+    name: "Houston, TX"
+    region: "us-south"
+    center: {lat: 29.7604, lon: -95.3698}
+    depot: {lat: 29.7300, lon: -95.4200, name: "Houston Hauling Depot"}
+    landfill: {lat: 29.6100, lon: -95.2600, name: "Atascocita Landfill"}
+
+  - id: dallas
+    name: "Dallas, TX"
+    region: "us-south"
+    center: {lat: 32.7767, lon: -96.7970}
+    depot: {lat: 32.8000, lon: -96.8500, name: "Dallas North Depot"}
+    landfill: {lat: 32.6900, lon: -96.6800, name: "Skyline Landfill"}
+
+  - id: phoenix
+    name: "Phoenix, AZ"
+    region: "us-west"
+    center: {lat: 33.4484, lon: -112.0740}
+    depot: {lat: 33.4800, lon: -112.1200, name: "Phoenix Metro Depot"}
+    landfill: {lat: 33.3700, lon: -111.9600, name: "Salt River Landfill"}
+
+  - id: chicago
+    name: "Chicago, IL"
+    region: "us-central"
+    center: {lat: 41.8781, lon: -87.6298}
+    depot: {lat: 41.9200, lon: -87.7000, name: "Chicago West Depot"}
+    landfill: {lat: 41.8000, lon: -87.5400, name: "Calumet Landfill"}
+
+# Per-truck telemetry envelope. These bound the synthetic signals so the map
+# colouring and the Datadog metrics look like a real diesel collection fleet.
+telemetry:
+  speed_mph: {collecting: [4, 14], transit: [25, 45], idle: [0, 0]}
+  engine_temp_f: {min: 178, max: 232, warn: 220, crit: 228}
+  fuel_pct: {start: 100, drain_per_km: 0.18}
+  load_pct: {fill_per_stop: 1.3}          # % of hopper filled per collection stop
+  # A small slice of the fleet runs "unhealthy" so the demo has something to
+  # find (engine over-temp, low fuel, stuck/idle). Fractions of the fleet.
+  fault_rates: {overheat: 0.05, low_fuel: 0.06, stuck: 0.03}

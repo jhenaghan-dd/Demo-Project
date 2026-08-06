@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WasteManagement — Live Fleet Operations</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg: #0f1117; --panel: #171a21; --panel2: #1e222b; --line: #2a2f3a;
+      --text: #e6e9ef; --muted: #8b93a3; --wm: #009639; /* WM green */
+      --collecting: #22c55e; --returning: #3b82f6; --dumping: #f59e0b;
+      --idle: #6b7280; --fault: #ef4444; --overheat: #fb7185;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+    header { display: flex; align-items: center; gap: 20px; padding: 12px 18px;
+      background: var(--panel); border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+    .brand .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--wm);
+      box-shadow: 0 0 10px var(--wm); }
+    .kpis { display: flex; gap: 22px; margin-left: 8px; }
+    .kpi { display: flex; flex-direction: column; }
+    .kpi .v { font-size: 20px; font-weight: 700; line-height: 1; }
+    .kpi .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 4px; }
+    .kpi .v.warn { color: var(--dumping); }
+    .kpi .v.bad { color: var(--fault); }
+    .spacer { flex: 1; }
+    select { background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+      border-radius: 8px; padding: 7px 10px; font-size: 13px; }
+    main { position: relative; }
+    #map { position: absolute; inset: 0; background: var(--bg); }
+    .legend { position: absolute; z-index: 500; bottom: 18px; left: 18px; background: rgba(23,26,33,.92);
+      border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12px; }
+    .legend h4 { margin: 0 0 8px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .legend .row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+    .legend .sw { width: 11px; height: 11px; border-radius: 50%; }
+    .status-pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--panel2); color: var(--text); }
+    .leaflet-popup-content { margin: 12px 14px; font-size: 13px; }
+    .tk { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+    .trow { display: flex; justify-content: space-between; gap: 18px; margin: 3px 0; }
+    .trow .k { color: var(--muted); }
+    .banner { position: absolute; z-index: 500; top: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(239,68,68,.15); border: 1px solid var(--fault); color: #fecaca;
+      padding: 6px 14px; border-radius: 8px; font-size: 12px; display: none; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="brand"><span class="dot"></span> WasteManagement · Fleet Operations</div>
+      <div class="kpis">
+        <div class="kpi"><span class="v" id="k-total">—</span><span class="l">Trucks</span></div>
+        <div class="kpi"><span class="v" id="k-active">—</span><span class="l">On Route</span></div>
+        <div class="kpi"><span class="v" id="k-load">—</span><span class="l">Avg Load</span></div>
+        <div class="kpi"><span class="v" id="k-dump">—</span><span class="l">At Landfill</span></div>
+        <div class="kpi"><span class="v bad" id="k-fault">—</span><span class="l">Alerts</span></div>
+      </div>
+      <div class="spacer"></div>
+      <select id="metro"><option value="all">All metros</option></select>
+    </header>
+    <main>
+      <div id="map"></div>
+      <div class="banner" id="banner"></div>
+      <div class="legend">
+        <h4>Truck status</h4>
+        <div class="row"><span class="sw" style="background:var(--collecting)"></span> Collecting</div>
+        <div class="row"><span class="sw" style="background:var(--returning)"></span> Returning to landfill</div>
+        <div class="row"><span class="sw" style="background:var(--dumping)"></span> Dumping</div>
+        <div class="row"><span class="sw" style="background:var(--overheat)"></span> Engine over-temp</div>
+        <div class="row"><span class="sw" style="background:var(--fault)"></span> Stuck / idle alert</div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+  const COLORS = {
+    collecting: getComputedStyle(document.documentElement).getPropertyValue('--collecting').trim(),
+    returning:  getComputedStyle(document.documentElement).getPropertyValue('--returning').trim(),
+    dumping:    getComputedStyle(document.documentElement).getPropertyValue('--dumping').trim(),
+    idle:       getComputedStyle(document.documentElement).getPropertyValue('--idle').trim(),
+    fault:      getComputedStyle(document.documentElement).getPropertyValue('--fault').trim(),
+    overheat:   getComputedStyle(document.documentElement).getPropertyValue('--overheat').trim(),
+  };
+
+  function colorFor(t) {
+    if (t.fault === 'overheat' || t.engine_temp_f >= 226) return COLORS.overheat;
+    if (t.fault === 'stuck' || t.status === 'idle') return COLORS.fault;
+    if (t.status === 'dumping') return COLORS.dumping;
+    if (t.status === 'returning') return COLORS.returning;
+    return COLORS.collecting;
+  }
+
+  // Default to a street-level view of the lead metro (Houston, WM HQ); the
+  // metro dropdown re-frames to any other metro on demand.
+  const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView([29.76, -95.37], 12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 19,
+  }).addTo(map);
+
+  // Leaflet caches the container size at init; if the CSS grid hadn't settled
+  // yet it tiles only part of the pane. Re-measure after layout and on resize.
+  window.addEventListener('resize', () => map.invalidateSize());
+  setTimeout(() => map.invalidateSize(), 250);
+
+  const markers = new Map();     // truck_id -> L.circleMarker
+  let metros = {}, metroFilter = 'all', drewRoutes = false;
+
+  function popupHtml(t) {
+    const pill = `<span class="status-pill" style="background:${colorFor(t)}22;color:${colorFor(t)}">${t.status}</span>`;
+    const rows = [
+      ['Route', t.route_id], ['Metro', t.metro_name],
+      ['Speed', t.speed_mph + ' mph'], ['Hopper load', Math.round(t.load_pct) + '%'],
+      ['Engine temp', t.engine_temp_f + ' °F'], ['Fuel', t.fuel_pct + '%'],
+      ['Stops served', t.stops_served],
+    ].map(([k, v]) => `<div class="trow"><span class="k">${k}</span><span>${v}</span></div>`).join('');
+    return `<div class="tk">${t.truck_id} ${pill}</div>${rows}` +
+      (t.fault ? `<div class="trow" style="color:var(--fault)"><span class="k">Alert</span><span>${t.fault.replace('_',' ')}</span></div>` : '');
+  }
+
+  async function drawRoutes() {
+    try {
+      const r = await fetch('api/routes'); const g = await r.json();
+      metros = g.metros;
+      // Metro filter dropdown.
+      const sel = document.getElementById('metro');
+      Object.entries(metros).forEach(([id, m]) => {
+        const o = document.createElement('option'); o.value = id; o.textContent = m.name; sel.appendChild(o);
+      });
+      // Route lines.
+      g.routes.forEach(rt => L.polyline(rt.line, {
+        color: '#3a4150', weight: 2, opacity: .5,
+      }).addTo(map));
+      // Depot + landfill markers.
+      Object.values(metros).forEach(m => {
+        L.marker(m.depot.pos, { title: m.depot.name }).addTo(map)
+          .bindPopup(`<b>${m.depot.name}</b><br>Depot`);
+        L.circle(m.landfill.pos, { radius: 900, color: '#f59e0b', weight: 1, fillOpacity: .12 })
+          .addTo(map).bindPopup(`<b>${m.landfill.name}</b><br>Landfill`);
+      });
+      drewRoutes = true;
+    } catch (e) { /* routes are best-effort; positions still render */ }
+  }
+
+  function applyMetroFilter() {
+    const b = { list: [] };
+    markers.forEach((mk, id) => {
+      const show = metroFilter === 'all' || mk._metro === metroFilter;
+      if (show) { mk.addTo(map); b.list.push(mk.getLatLng()); }
+      else map.removeLayer(mk);
+    });
+    if (metroFilter !== 'all' && metros[metroFilter]) map.setView(metros[metroFilter].center, 11);
+    else if (b.list.length) map.setView([29.76, -95.37], 5);
+  }
+
+  function updateKpis(trucks) {
+    const active = trucks.filter(t => t.status === 'collecting' || t.status === 'returning').length;
+    const dumping = trucks.filter(t => t.status === 'dumping').length;
+    const faults = trucks.filter(t => t.fault || t.engine_temp_f >= 226 || t.status === 'idle').length;
+    const load = trucks.length ? (trucks.reduce((s, t) => s + t.load_pct, 0) / trucks.length) : 0;
+    document.getElementById('k-total').textContent = trucks.length;
+    document.getElementById('k-active').textContent = active;
+    document.getElementById('k-load').textContent = load.toFixed(0) + '%';
+    document.getElementById('k-dump').textContent = dumping;
+    const kf = document.getElementById('k-fault'); kf.textContent = faults;
+    kf.className = 'v ' + (faults ? 'bad' : '');
+  }
+
+  async function poll() {
+    let trucks;
+    try {
+      const r = await fetch('api/positions'); trucks = (await r.json()).trucks;
+      document.getElementById('banner').style.display = 'none';
+    } catch (e) {
+      trucks = fallbackTick();
+      const b = document.getElementById('banner');
+      b.textContent = 'Live API unreachable — showing local preview simulation';
+      b.style.display = 'block';
+    }
+    const shown = metroFilter === 'all' ? trucks : trucks.filter(t => t.metro === metroFilter);
+    updateKpis(shown);
+    trucks.forEach(t => {
+      let mk = markers.get(t.truck_id);
+      if (!mk) {
+        mk = L.circleMarker([t.lat, t.lon], { radius: 5, weight: 1, color: '#0b0d12', fillOpacity: .95 });
+        mk._metro = t.metro;
+        mk.bindPopup(popupHtml(t));
+        markers.set(t.truck_id, mk);
+        if (metroFilter === 'all' || metroFilter === t.metro) mk.addTo(map);
+      } else {
+        mk.setLatLng([t.lat, t.lon]);
+        if (mk.isPopupOpen()) mk.setPopupContent(popupHtml(t));
+      }
+      mk.setStyle({ fillColor: colorFor(t) });
+      mk.setRadius(t.status === 'dumping' ? 8 : (t.fault ? 7 : 6));
+    });
+  }
+
+  // --- Fallback preview sim (only used if the positions API is unreachable,
+  // e.g. index.html opened directly as a file). Keeps the page alive for a
+  // standalone look; the real fleet comes from the Python server. -----------
+  let fb = null;
+  function fallbackTick() {
+    if (!fb) {
+      fb = Array.from({ length: 40 }, (_, i) => ({
+        truck_id: `wm-truck-${String(i).padStart(4, '0')}`, metro: 'houston',
+        metro_name: 'Houston, TX', region: 'us-south', route_id: 'houston-r00',
+        lat: 29.76 + (Math.random() - .5) * .18, lon: -95.37 + (Math.random() - .5) * .18,
+        status: 'collecting', speed_mph: 8, load_pct: Math.round(Math.random() * 100),
+        engine_temp_f: 195, fuel_pct: 70, stops_served: 0, fault: '',
+      }));
+    }
+    fb.forEach(t => { t.lat += (Math.random() - .5) * .004; t.lon += (Math.random() - .5) * .004; });
+    return fb;
+  }
+
+  document.getElementById('metro').addEventListener('change', (e) => {
+    metroFilter = e.target.value; applyMetroFilter();
+  });
+
+  (async function start() {
+    await drawRoutes();
+    await poll();
+    map.invalidateSize();
+    setInterval(poll, 3000);
+  })();
+  </script>
+</body>
+</html>
