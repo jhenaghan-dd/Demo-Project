@@ -879,3 +879,57 @@ class DatadogAPIClient:
             "from": from_ts,
             "to": to_ts,
         })
+
+    # ===== Metrics Submission API (v2) =====
+
+    def submit_series(self, series: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Submit metric points via POST /api/v2/series.
+
+        Each series item follows the v2 schema:
+            {
+              "metric": "wm.truck.load_pct",
+              "type": 3,                       # 0 unspecified, 1 count, 2 rate, 3 gauge
+              "points": [{"timestamp": <unix_s>, "value": <float>}],
+              "resources": [{"name": "wm-truck-0042", "type": "host"}],
+              "tags": ["metro:houston", "dd-demo-toolkit:true"],
+            }
+
+        A ``resources`` entry of type ``host`` is what makes the named value
+        materialize as a distinct host object in the Infrastructure list /
+        Host Map — this is how the fleet-at-scale simulator turns one process
+        into hundreds of synthetic hosts without any cloud instances.
+
+        Args:
+            series: List of v2 series dicts (see schema above).
+
+        Returns:
+            API response ({"errors": []} on success).
+        """
+        return self._request("POST", "/api/v2/series", json_data={"series": series})
+
+    def update_host_tags(self, host: str, tags: List[str],
+                         source: str = "user") -> Dict[str, Any]:
+        """
+        Replace the host-level tags for a single host (PUT /api/v1/tags/hosts).
+
+        Host tags (as opposed to metric tags) attach to the host object itself,
+        so they drive Host Map grouping/colouring and the infra-list facets
+        (e.g. ``region``, ``metro``, ``instance-type``). Uses PUT (replace)
+        rather than POST (add) so re-running the emitter is idempotent instead
+        of accumulating duplicate tags.
+
+        Args:
+            host: Host name (must match the series ``resources`` host name).
+            tags: Full tag list to set on the host (``key:value`` strings).
+            source: Datadog tag source — must be a recognized value (e.g.
+                "user", "chef", "aws"). Defaults to "user" for API-set tags;
+                arbitrary labels return 404 "Provided source does not exist".
+
+        Returns:
+            API response with the host's tags.
+        """
+        return self._request(
+            "PUT", f"/api/v1/tags/hosts/{host}",
+            json_data={"tags": tags}, params={"source": source},
+        )
