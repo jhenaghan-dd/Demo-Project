@@ -1,0 +1,131 @@
+# WasteManagement notebook — the RCA arc the plugin choreographs: a telematics
+# GPS null-rate spike degrades route-optimization data, and the ops-agent's
+# dispatch decision accuracy regresses across ALL models in lockstep — the
+# hallmark of an INPUT (data) problem, not a model problem. Closes with the
+# multi-model comparison and a business-impact section.
+
+notebooks:
+
+  - id: "wm-agent-decision-regression-rca"
+    name: "🧪 WM Ops-Agent — Decision Regression RCA (data → agent)"
+    type: investigation
+    description: "A WM ops-agent decision-accuracy regression traced to upstream telematics data quality. Walk: accuracy drop → per-model split (all drop together) → GPS null-rate spike + pipeline staleness → root cause in the telematics DAG. Closes with the model comparison so the team knows which model to keep."
+    time_range: "4h"
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:route-data-pipeline"
+      - "signal_chain_root:telematics-gps-null-spike"
+    cells:
+
+      - attributes:
+          definition:
+            type: "markdown"
+            text: |
+              # WM Ops-Agent — Decision Regression RCA
+
+              **Symptom:** the AI Ops-Agent Eval Scorecard flagged decision
+              accuracy dropping across the candidate models in the last ~30
+              minutes — dispatch reroutes and missed-pickup resolutions are
+              landing on the wrong trucks.
+
+              **Old workflow:** notice customer complaints, manually sample
+              agent transcripts, guess whether it's the model or the prompt.
+              Hours, and only after customers feel it.
+
+              **New workflow:** every agent decision is scored continuously;
+              a regression alerts, and this notebook walks the data lineage
+              from the agent back to the upstream telematics pipeline.
+
+              ---
+              ## Step 1 — Confirm the regression
+        type: "notebook_cells"
+
+      - attributes:
+          definition:
+            type: "timeseries"
+            show_legend: true
+            requests:
+              - response_format: "timeseries"
+                queries:
+                  - data_source: "metrics"
+                    name: "acc"
+                    query: "avg:wm.agent_eval.decision_accuracy{device_type:agent_eval_node} by {device_model}"
+                formulas:
+                  - formula: "acc"
+                    alias: "decision accuracy"
+                display_type: "line"
+            markers:
+              - value: "y = 0.80"
+                display_type: "error dashed"
+                label: "regression floor"
+        type: "notebook_cells"
+
+      - attributes:
+          definition:
+            type: "markdown"
+            text: |
+              ## Step 2 — Rule out the model
+
+              Notice **all three models drop together**. If this were a model
+              or prompt regression it would hit one model, not all of them in
+              lockstep. Lockstep degradation across independent models is the
+              signature of a shared **input** problem — bad data. Walk upstream.
+        type: "notebook_cells"
+
+      - attributes:
+          definition:
+            type: "timeseries"
+            show_legend: true
+            requests:
+              - response_format: "timeseries"
+                queries:
+                  - data_source: "metrics"
+                    name: "nullrate"
+                    query: "avg:wm.data.gps_null_rate_pct{device_type:telematics_pipeline_node}"
+                formulas:
+                  - formula: "nullrate"
+                    alias: "GPS null rate %"
+                display_type: "line"
+              - response_format: "timeseries"
+                queries:
+                  - data_source: "metrics"
+                    name: "age"
+                    query: "avg:wm.data.last_run_age_min{device_type:telematics_pipeline_node}"
+                formulas:
+                  - formula: "age"
+                    alias: "last successful run age (min)"
+                display_type: "line"
+        type: "notebook_cells"
+
+      - attributes:
+          definition:
+            type: "markdown"
+            text: |
+              ## Step 3 — Root cause: the telematics pipeline
+
+              The GPS null-rate spiked and the pipeline went stale ~30 minutes
+              before the accuracy drop — bad/missing vehicle positions flowed
+              into route optimization and the agent's dispatch context. Fix the
+              upstream Airflow DAG and the eval scores recover on their own.
+
+              ---
+              ## Business impact
+
+              - **What happened:** a data-quality event, not a model failure —
+                caught and root-caused in one notebook instead of hours of
+                transcript spelunking.
+              - **Cost avoided per event:** a bad dispatch reroute across a metro
+                is dozens of missed/late stops → SLA credits + a spike in
+                "where's my truck" calls. Catching it at the *data* layer prevents
+                the customer-facing impact entirely.
+              - **Model decision:** the scorecard shows which model holds up best
+                on accuracy **and** safety-refusal **and** cost — so promotion is
+                a data-backed call, not a guess.
+
+              ## Follow-ups
+              - Add a data-quality gate: block eval/promotion when GPS null-rate > 5%.
+              - Wire the telematics-pipeline-stale monitor to page data-engineering
+                before the agent ever sees the bad data.
+        type: "notebook_cells"

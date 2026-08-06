@@ -1,0 +1,173 @@
+{
+  "title": "WasteManagement — Fleet Operations",
+  "description": "[dd-demo-toolkit:waste_management] Metro-level fleet health — trucks active, hopper load, engine temp, fuel, on-time collection, and missed pickups. Driven by wm.fleet.* gauges (make up). For the per-truck Host Map and the live GPS map, see the standalone docker/waste_management assets.",
+  "layout_type": "ordered",
+  "reflow_type": "fixed",
+  "template_variables": [
+    {"name": "metro", "prefix": "metro", "available_values": [], "default": "*"}
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## 🛻 WM Fleet Operations\nMetro-level fleet health from the route supervisors. The per-truck **Host Map** (every truck as a Datadog host) and the **live GPS map** are the standalone `docker/waste_management` assets — start them from the **WasteManagement** tab in `make ui`.",
+        "background_color": "green",
+        "font_size": "14",
+        "text_align": "left",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left",
+        "has_padding": true
+      },
+      "layout": {"x": 0, "y": 0, "width": 12, "height": 1}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Trucks active (fleet)",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "sum:wm.fleet.trucks_active{device_type:route_supervisor,$metro}", "aggregator": "last"}],
+          "formulas": [{"formula": "q"}]
+        }],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {"x": 0, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Avg hopper load %",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.fleet.avg_load_pct{device_type:route_supervisor,$metro}", "aggregator": "avg"}],
+          "formulas": [{"formula": "q"}]
+        }],
+        "autoscale": true,
+        "custom_unit": "%",
+        "precision": 0
+      },
+      "layout": {"x": 3, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Hottest engine (°F)",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "max:wm.fleet.avg_engine_temp_f{device_type:route_supervisor,$metro}", "aggregator": "max"}],
+          "formulas": [{"formula": "q"}],
+          "conditional_formats": [
+            {"comparator": ">=", "value": 222, "palette": "white_on_red"},
+            {"comparator": ">=", "value": 215, "palette": "white_on_yellow"},
+            {"comparator": "<", "value": 215, "palette": "white_on_green"}
+          ]
+        }],
+        "autoscale": true,
+        "custom_unit": "°F",
+        "precision": 0
+      },
+      "layout": {"x": 6, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "On-time collection %",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.fleet.on_time_rate_pct{device_type:route_supervisor,$metro}", "aggregator": "avg"}],
+          "formulas": [{"formula": "q"}],
+          "conditional_formats": [
+            {"comparator": ">=", "value": 95, "palette": "white_on_green"},
+            {"comparator": ">=", "value": 90, "palette": "white_on_yellow"},
+            {"comparator": "<", "value": 90, "palette": "white_on_red"}
+          ]
+        }],
+        "autoscale": true,
+        "custom_unit": "%",
+        "precision": 1
+      },
+      "layout": {"x": 9, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Avg engine temp by metro",
+        "show_legend": true,
+        "requests": [{
+          "response_format": "timeseries",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.fleet.avg_engine_temp_f{device_type:route_supervisor,$metro} by {metro}"}],
+          "formulas": [{"formula": "q"}],
+          "display_type": "line"
+        }],
+        "markers": [{"value": "y = 222", "display_type": "error dashed", "label": "over-temp"}]
+      },
+      "layout": {"x": 0, "y": 3, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "On-time collection rate by metro",
+        "show_legend": true,
+        "requests": [{
+          "response_format": "timeseries",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.fleet.on_time_rate_pct{device_type:route_supervisor,$metro} by {metro}"}],
+          "formulas": [{"formula": "q"}],
+          "display_type": "line"
+        }],
+        "markers": [{"value": "y = 90", "display_type": "warning dashed", "label": "SLA floor"}]
+      },
+      "layout": {"x": 6, "y": 3, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Avg hopper load by metro",
+        "show_legend": true,
+        "requests": [{
+          "response_format": "timeseries",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.fleet.avg_load_pct{device_type:route_supervisor,$metro} by {metro}"}],
+          "formulas": [{"formula": "q"}],
+          "display_type": "area"
+        }]
+      },
+      "layout": {"x": 0, "y": 6, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Missed pickups by metro",
+        "show_legend": true,
+        "requests": [{
+          "response_format": "timeseries",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "sum:wm.fleet.missed_pickups_total{device_type:route_supervisor,$metro} by {metro}"}],
+          "formulas": [{"formula": "q"}],
+          "display_type": "bars"
+        }]
+      },
+      "layout": {"x": 6, "y": 6, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "note",
+        "content": "### 🗺️ Live GPS fleet map\nEmbedded below when the map is exposed over HTTPS (start `wm-tunnel` on the WasteManagement tab, then re-deploy). Otherwise this panel is omitted and the map lives standalone on localhost:8088.",
+        "background_color": "gray",
+        "font_size": "14",
+        "text_align": "left",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left",
+        "has_padding": true
+      },
+      "layout": {"x": 0, "y": 9, "width": 12, "height": 1}
+    },
+    {
+      "definition": {
+        "type": "iframe",
+        "url": "${WM_FLEET_MAP_URL}"
+      },
+      "layout": {"x": 0, "y": 10, "width": 12, "height": 7}
+    }
+  ]
+}

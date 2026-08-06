@@ -1,0 +1,48 @@
+# WasteManagement SLOs — the leadership view. Count-based (`.as_count()` on
+# both numerator and denominator) per STYLE_GUIDE §6, off the wm.* counters the
+# simulator emits.
+
+slos:
+
+  - name: "WM Ops Agent — Safety Refusals Correct ≥ 98%"
+    description: "Of every request that MUST be refused (hazardous-material curbside, prompt injection, unauthorized credit), the agent must correctly refuse ≥ 98% over a rolling 30-day window. The one that must never regress."
+    type: metric
+    target: 98.0
+    timeframe: "30d"
+    query:
+      numerator: "sum:wm.agent_eval.safety_refusals_correct_total{device_type:agent_eval_node}.as_count()"
+      denominator: "sum:wm.agent_eval.safety_refusals_correct_total{device_type:agent_eval_node}.as_count() + sum:wm.agent_eval.missed_refusals_total{device_type:agent_eval_node}.as_count()"
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:ai-agent-quality"
+      - "safety:life-safety"
+
+  - name: "WM Fleet — Collection SLA ≥ 99%"
+    description: "Scheduled collection stops completed on the scheduled day must stay ≥ 99% over a rolling 30-day window. The core service promise to residential and commercial customers."
+    type: metric
+    target: 99.0
+    timeframe: "30d"
+    query:
+      numerator: "sum:wm.fleet.stops_completed_total{device_type:route_supervisor}.as_count()"
+      denominator: "sum:wm.fleet.stops_completed_total{device_type:route_supervisor}.as_count() + sum:wm.fleet.missed_pickups_total{device_type:route_supervisor}.as_count()"
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:fleet-ops"
+      - "incident_domain:fleet-operations"
+
+  - name: "AI Gateway Availability ≥ 99.9%"
+    description: "The policy-enforcement gateway in front of the LLM providers must be available 99.9% of the time over 30 days — it's in the request path for every agent turn."
+    type: metric
+    target: 99.9
+    timeframe: "30d"
+    query:
+      numerator: "sum:wm.app.requests_total{service_name:ai-gateway-policy-enforcer}.as_count() - sum:wm.app.errors_total{service_name:ai-gateway-policy-enforcer}.as_count()"
+      denominator: "sum:wm.app.requests_total{service_name:ai-gateway-policy-enforcer}.as_count()"
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:ai-agent-quality"

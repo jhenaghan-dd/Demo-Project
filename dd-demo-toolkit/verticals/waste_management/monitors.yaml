@@ -1,0 +1,133 @@
+# WasteManagement monitors — AI agent eval quality/safety (per model), fleet
+# operations, and the route-data-pipeline leading indicator.
+#
+# STYLE_GUIDE compliance: query alerts get one threshold each (§1.3, no ||/&&);
+# no percentile aggregators on gauges (§1.1 + user memory) — counts/rates/gauges
+# only; `by {dim}` before any `.as_count()` (§1.2). All queries reference
+# wm.* gauges the simulator emits (§1.9), split by `model` / `metro`.
+
+monitors:
+
+  # ===== AI agent eval — the "pick + keep the right model" safety story =====
+  - name: "[WasteManagement] Agent Decision Accuracy Regression"
+    type: "query alert"
+    query: "avg(last_30m):avg:wm.agent_eval.decision_accuracy{device_type:agent_eval_node} by {device_model} < 0.80"
+    message: "📉 WM ops-agent decision accuracy below 0.80 for {{device_model.name}}. Likely a prompt-template regression or a data shift on the eval set. Compare on the Agent Eval Scorecard before promoting this model."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:ai-agent-quality"
+      - "signal_chain:1-root-cause"
+    priority: 2
+
+  - name: "[WasteManagement] Agent Safety-Refusal Rate Low"
+    type: "query alert"
+    query: "avg(last_15m):avg:wm.agent_eval.safety_refusal_rate{device_type:agent_eval_node} by {device_model} < 0.92"
+    message: "🛡️ WM ops-agent safety-refusal rate below 0.92 for {{device_model.name}} — it's failing to refuse hazardous-material curbside / prompt-injection / unauthorized-credit requests. This is the row you never want in production. Route to a higher-fidelity model via the AI gateway."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:ai-agent-quality"
+      - "signal_chain:3-symptom"
+      - "safety:life-safety"
+    priority: 1
+
+  - name: "[WasteManagement] Agent PII Leak Rate Elevated"
+    type: "query alert"
+    query: "avg(last_15m):avg:wm.agent_eval.pii_leak_rate_pct{device_type:agent_eval_node} by {device_model} > 3"
+    message: "🔒 WM ops-agent PII-leak rate above 3% for {{device_model.name}}. Customer account / address / card data at risk of exposure. Inspect the AI gateway PII-redaction guardrail."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:ai-agent-quality"
+      - "signal_chain:3-symptom"
+      - "compliance:pci-dss"
+    priority: 1
+
+  - name: "[WasteManagement] Agent Hallucination Rate Elevated"
+    type: "query alert"
+    query: "avg(last_15m):avg:wm.agent_eval.hallucination_rate_pct{device_type:agent_eval_node} by {device_model} > 6"
+    message: "👻 WM ops-agent hallucination rate above 6% for {{device_model.name}}. Fabricated policy/quotes reaching customers — fail back to the prior prompt version or a stronger model."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:ai-agent-quality"
+      - "signal_chain:3-symptom"
+    priority: 2
+
+  - name: "[WasteManagement] Agent Token Cost Anomaly"
+    type: "query alert"
+    query: "avg(last_30m):avg:wm.agent_eval.cost_per_1k_tokens_usd{device_type:agent_eval_node} by {device_model} > 0.013"
+    message: "💸 WM ops-agent token cost above $0.013 / 1k tokens for {{device_model.name}}. Validate against the scorecard — route low-stakes turns to a cheaper model via the AI gateway if quality holds."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:ai-agent-quality"
+    priority: 3
+
+  # ===== Fleet operations =====
+  - name: "[WasteManagement] Fleet Engine Over-Temp"
+    type: "query alert"
+    query: "avg(last_15m):avg:wm.fleet.avg_engine_temp_f{device_type:route_supervisor} by {metro} > 222"
+    message: "🌡️ Average engine temperature above 222°F in {{metro.name}}. Predictive-maintenance signal — trucks trending toward over-temp faults. Dispatch a maintenance check before a mid-route breakdown."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:fleet-ops"
+      - "incident_domain:fleet-operations"
+      - "signal_chain:2-leading-indicator"
+    priority: 2
+
+  - name: "[WasteManagement] Fleet Low Fuel"
+    type: "query alert"
+    query: "avg(last_15m):min:wm.fleet.min_fuel_pct{device_type:route_supervisor} by {metro} < 12"
+    message: "⛽ A truck in {{metro.name}} is below 12% fuel. Route it to refuel before it strands mid-route and misses SLA stops."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:fleet-ops"
+      - "incident_domain:fleet-operations"
+      - "signal_chain:2-leading-indicator"
+    priority: 3
+
+  - name: "[WasteManagement] Fleet On-Time Rate Below SLA"
+    type: "query alert"
+    query: "avg(last_30m):avg:wm.fleet.on_time_rate_pct{device_type:route_supervisor} by {metro} < 90"
+    message: "⏱ On-time collection rate below 90% in {{metro.name}}. Customers will start reporting missed pickups. Check for a truck down or a route-optimization/telematics data issue upstream."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:fleet-ops"
+      - "incident_domain:fleet-operations"
+      - "signal_chain:3-symptom"
+    priority: 2
+
+  # ===== Route-data pipeline — leading indicator for the cascade =====
+  - name: "[WasteManagement] Telematics Pipeline Stale"
+    type: "query alert"
+    query: "avg(last_15m):avg:wm.data.last_run_age_min{device_type:telematics_pipeline_node} > 25"
+    message: "🥶 Telematics pipeline has not had a successful run in >25 min. Stale vehicle positions feed route optimization AND the agent's dispatch decisions — accuracy will regress within ~30 min. Inspect the upstream DAG."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:data-engineering"
+      - "incident_domain:route-data-pipeline"
+      - "signal_chain:1-root-cause"
+    priority: 1
+
+  - name: "[WasteManagement] Telematics GPS Null Rate Spike"
+    type: "query alert"
+    query: "avg(last_15m):avg:wm.data.gps_null_rate_pct{device_type:telematics_pipeline_node} > 5"
+    message: "🕳️ Telematics GPS null rate above 5%. Bad position data is heading into route optimization and agent dispatch decisions — agent decision accuracy will follow within ~30 min. Page the data team."
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:data-engineering"
+      - "incident_domain:route-data-pipeline"
+      - "signal_chain:1-root-cause"
+    priority: 2

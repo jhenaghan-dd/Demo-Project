@@ -1,0 +1,185 @@
+{
+  "title": "WasteManagement — AI Ops-Agent Eval Scorecard",
+  "description": "[dd-demo-toolkit:waste_management] Continuous eval of the WM customer/dispatch AI agent across candidate models — decision accuracy, F1, safety-refusal rate, PII-leak rate, hallucination, latency and token cost, split by model. Driven by wm.agent_eval.* gauges (make up). The richer live surface is LLM Observability → ml_app:wm-ops-agent (wm_agentic_demo).",
+  "layout_type": "ordered",
+  "reflow_type": "fixed",
+  "template_variables": [
+    {"name": "device_model", "prefix": "device_model", "available_values": [], "default": "*"}
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## 🤖 WM Ops-Agent — Eval Scorecard\nPick the agent model with **data, not vibes**: quality, safety, and cost side by side. Filter `safety_refusal_correct = missed_refusal` in LLM Obs Experiments to see the exact turns a cheaper model would have mishandled.",
+        "background_color": "green",
+        "font_size": "14",
+        "text_align": "left",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left",
+        "has_padding": true
+      },
+      "layout": {"x": 0, "y": 0, "width": 12, "height": 1}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Decision accuracy (latest, by model)",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.agent_eval.decision_accuracy{device_type:agent_eval_node,$device_model} by {device_model}", "aggregator": "last"}],
+          "formulas": [{"formula": "q"}],
+          "conditional_formats": [
+            {"comparator": ">=", "value": 0.88, "palette": "white_on_green"},
+            {"comparator": ">=", "value": 0.80, "palette": "white_on_yellow"},
+            {"comparator": "<", "value": 0.80, "palette": "white_on_red"}
+          ]
+        }],
+        "autoscale": true,
+        "precision": 2
+      },
+      "layout": {"x": 0, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "F1 (latest, by model)",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.agent_eval.f1_score{device_type:agent_eval_node,$device_model} by {device_model}", "aggregator": "last"}],
+          "formulas": [{"formula": "q"}],
+          "conditional_formats": [
+            {"comparator": ">=", "value": 0.85, "palette": "white_on_green"},
+            {"comparator": ">=", "value": 0.75, "palette": "white_on_yellow"},
+            {"comparator": "<", "value": 0.75, "palette": "white_on_red"}
+          ]
+        }],
+        "autoscale": true,
+        "precision": 2
+      },
+      "layout": {"x": 3, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Safety-refusal rate (latest, by model)",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.agent_eval.safety_refusal_rate{device_type:agent_eval_node,$device_model} by {device_model}", "aggregator": "last"}],
+          "formulas": [{"formula": "q"}],
+          "conditional_formats": [
+            {"comparator": ">=", "value": 0.97, "palette": "white_on_green"},
+            {"comparator": ">=", "value": 0.92, "palette": "white_on_yellow"},
+            {"comparator": "<", "value": 0.92, "palette": "white_on_red"}
+          ]
+        }],
+        "autoscale": true,
+        "precision": 2
+      },
+      "layout": {"x": 6, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "PII leak rate % (latest, by model)",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.agent_eval.pii_leak_rate_pct{device_type:agent_eval_node,$device_model} by {device_model}", "aggregator": "last"}],
+          "formulas": [{"formula": "q"}],
+          "conditional_formats": [
+            {"comparator": "<=", "value": 1.0, "palette": "white_on_green"},
+            {"comparator": "<=", "value": 3.0, "palette": "white_on_yellow"},
+            {"comparator": ">", "value": 3.0, "palette": "white_on_red"}
+          ]
+        }],
+        "autoscale": true,
+        "custom_unit": "%",
+        "precision": 1
+      },
+      "layout": {"x": 9, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Decision accuracy over time — by model",
+        "show_legend": true,
+        "requests": [{
+          "response_format": "timeseries",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.agent_eval.decision_accuracy{device_type:agent_eval_node,$device_model} by {device_model}"}],
+          "formulas": [{"formula": "q"}],
+          "display_type": "line"
+        }]
+      },
+      "layout": {"x": 0, "y": 3, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Safety-refusal rate over time — by model",
+        "show_legend": true,
+        "requests": [{
+          "response_format": "timeseries",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.agent_eval.safety_refusal_rate{device_type:agent_eval_node,$device_model} by {device_model}"}],
+          "formulas": [{"formula": "q"}],
+          "display_type": "line"
+        }],
+        "markers": [{"value": "y = 0.92", "display_type": "error dashed", "label": "min acceptable"}]
+      },
+      "layout": {"x": 6, "y": 3, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Hallucination rate (%) — by model",
+        "show_legend": true,
+        "requests": [{
+          "response_format": "timeseries",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.agent_eval.hallucination_rate_pct{device_type:agent_eval_node,$device_model} by {device_model}"}],
+          "formulas": [{"formula": "q"}],
+          "display_type": "line"
+        }]
+      },
+      "layout": {"x": 0, "y": 6, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Token cost ($/1k) — by model",
+        "show_legend": true,
+        "requests": [{
+          "response_format": "timeseries",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.agent_eval.cost_per_1k_tokens_usd{device_type:agent_eval_node,$device_model} by {device_model}"}],
+          "formulas": [{"formula": "q"}],
+          "display_type": "line"
+        }]
+      },
+      "layout": {"x": 6, "y": 6, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Missed safety refusals (by model) — the row you never want",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "sum:wm.agent_eval.missed_refusals_total{device_type:agent_eval_node} by {device_model}", "aggregator": "sum"}],
+          "formulas": [{"formula": "q", "limit": {"count": 10, "order": "desc"}}]
+        }]
+      },
+      "layout": {"x": 0, "y": 9, "width": 6, "height": 3}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Avg latency (ms) — by model",
+        "show_legend": true,
+        "requests": [{
+          "response_format": "timeseries",
+          "queries": [{"data_source": "metrics", "name": "q", "query": "avg:wm.agent_eval.avg_latency_ms{device_type:agent_eval_node,$device_model} by {device_model}"}],
+          "formulas": [{"formula": "q"}],
+          "display_type": "line"
+        }]
+      },
+      "layout": {"x": 6, "y": 9, "width": 6, "height": 3}
+    }
+  ]
+}

@@ -1,0 +1,416 @@
+# WasteManagement — full vertical (art-of-the-possible).
+#
+# WM is a technology company operating as an environmental-services utility:
+# a large connected collection fleet, customer/dispatch AI agents, and the data
+# pipelines that feed them. This vertical is the deploy-assets-native core —
+# `dd-demo setup --vertical waste_management` deploys the dashboards / monitors /
+# SLOs / notebooks / plugin, and `make up` (DD_DEMO_VERTICAL=waste_management)
+# emits the `wm.*` gauges that populate them, with NO dependency on the
+# standalone extras.
+#
+# The standalone "art of the possible" pieces layer ON TOP (mirroring how EY's
+# data_obs stack + risk_eval_experiment sit beside its overlay):
+#   - docker/waste_management  — trucks as *distinct Datadog hosts* + live map
+#     (per-host `wm.truck.*`; the simulator can't mint per-host infra objects)
+#   - wm_agentic_demo          — real LLM Obs traces + experiments (ml_app
+#     wm-ops-agent); the simulator emits the eval *gauges*, the standalone app
+#     emits the richer LLM Obs surface.
+#
+# Namespace: env_prefix `wm` (matches the standalone `wm.truck.*` / wm-ops-agent
+# work). Simulator metrics use the AGGREGATE / eval namespaces `wm.fleet.*`,
+# `wm.agent_eval.*`, `wm.data.*` — deliberately distinct from the per-truck-host
+# `wm.truck.*` so the two data sources never collide.
+#
+# Tags: new vertical → its own team roster (like manufacturing's), all under the
+# existing keyspace (team / incident_domain / signal_chain — no new keys).
+
+vertical:
+  name: waste_management
+  display_name: WasteManagement Smart Fleet & AI
+  description: >-
+    Environmental-services technology platform — a metro collection fleet,
+    customer/dispatch AI agents, and the telematics/route-optimization data
+    pipelines behind them. Fleet health, agent eval quality/safety, and data
+    freshness in one control plane.
+  env_prefix: wm
+  emit_interval_sec: 15
+
+locations:
+  dimensions:
+  - name: metro
+    values:
+    - houston
+    - dallas
+    - phoenix
+    - chicago
+  - name: service_line
+    values:
+    - residential
+    - commercial
+    - roll-off
+    - industrial
+
+device_categories:
+
+  # Fleet-health aggregate nodes — one "route supervisor" per metro (count 4 +
+  # metro dimension → round-robin places one in each metro). Emits the fleet
+  # KPIs the Fleet Operations dashboard + fleet monitors/SLOs run off. This is
+  # the aggregate view; per-truck infra hosts come from the standalone emitter.
+  fleet_telemetry:
+    ip_base: '10.60'
+    devices:
+    - type: route_supervisor
+      manufacturer: WasteManagement
+      model: RouteIQ
+      firmware: "2026.7"
+      count: 4
+      metrics:
+      - name: wm.fleet.trucks_active
+        type: gauge
+        unit: "1"
+        range: [18, 26]
+        drift: 0.5
+      - name: wm.fleet.avg_load_pct
+        type: gauge
+        unit: "%"
+        range: [30, 75]
+        drift: 2.0
+      - name: wm.fleet.avg_engine_temp_f
+        type: gauge
+        unit: "F"
+        range: [188, 224]
+        drift: 1.5
+      - name: wm.fleet.min_fuel_pct
+        type: gauge
+        unit: "%"
+        range: [12, 45]
+        drift: 1.0
+      - name: wm.fleet.on_time_rate_pct
+        type: gauge
+        unit: "%"
+        range: [88, 99]
+        drift: 0.5
+      - name: wm.fleet.stops_completed_total
+        type: counter
+        unit: "1"
+        range: [0, 60]
+        drift: 1.5
+      - name: wm.fleet.missed_pickups_total
+        type: counter
+        unit: "1"
+        range: [0, 3]
+        drift: 0.1
+
+  # Agent-eval nodes — one per model the WM ops agent is evaluated against
+  # (mirrors EY's llm_eval_node). Gauges give a control surface for the model
+  # scorecard dashboard + per-model quality/safety monitors WITHOUT needing the
+  # LLM Obs UI; the wm_agentic_demo experiments emit the richer real evals.
+  # Ranges encode the quality profile: sonnet ≳ gpt-4o ≳ gpt-4o-mini, with the
+  # cheaper model leaking PII and missing safety refusals more often.
+  agent_eval_workloads:
+    ip_base: '10.61'
+    devices:
+    - type: agent_eval_node
+      manufacturer: Anthropic
+      model: claude-3-5-sonnet
+      firmware: "2026-06"
+      count: 1
+      metrics:
+      - name: wm.agent_eval.decision_accuracy
+        type: gauge
+        unit: "1"
+        range: [0.90, 0.98]
+        drift: 0.008
+      - name: wm.agent_eval.f1_score
+        type: gauge
+        unit: "1"
+        range: [0.90, 0.97]
+        drift: 0.008
+      - name: wm.agent_eval.safety_refusal_rate
+        type: gauge
+        unit: "1"
+        range: [0.97, 1.0]
+        drift: 0.004
+      - name: wm.agent_eval.pii_leak_rate_pct
+        type: gauge
+        unit: "%"
+        range: [0.0, 0.6]
+        drift: 0.03
+      - name: wm.agent_eval.hallucination_rate_pct
+        type: gauge
+        unit: "%"
+        range: [0.5, 3.0]
+        drift: 0.15
+      - name: wm.agent_eval.avg_latency_ms
+        type: gauge
+        unit: ms
+        range: [1400, 2200]
+        drift: 30.0
+      - name: wm.agent_eval.cost_per_1k_tokens_usd
+        type: gauge
+        unit: USD
+        range: [0.009, 0.015]
+        drift: 0.0004
+      - name: wm.agent_eval.escalation_rate_pct
+        type: gauge
+        unit: "%"
+        range: [2, 6]
+        drift: 0.2
+      - name: wm.agent_eval.eval_runs_total
+        type: counter
+        unit: "1"
+        range: [0, 40]
+        drift: 0.8
+      - name: wm.agent_eval.safety_refusals_correct_total
+        type: counter
+        unit: "1"
+        range: [0, 12]
+        drift: 0.3
+      - name: wm.agent_eval.missed_refusals_total
+        type: counter
+        unit: "1"
+        range: [0, 1]
+        drift: 0.02
+    - type: agent_eval_node
+      manufacturer: OpenAI
+      model: gpt-4o
+      firmware: "2026-06"
+      count: 1
+      metrics:
+      - name: wm.agent_eval.decision_accuracy
+        type: gauge
+        unit: "1"
+        range: [0.86, 0.95]
+        drift: 0.009
+      - name: wm.agent_eval.f1_score
+        type: gauge
+        unit: "1"
+        range: [0.86, 0.94]
+        drift: 0.009
+      - name: wm.agent_eval.safety_refusal_rate
+        type: gauge
+        unit: "1"
+        range: [0.95, 0.99]
+        drift: 0.006
+      - name: wm.agent_eval.pii_leak_rate_pct
+        type: gauge
+        unit: "%"
+        range: [0.2, 1.2]
+        drift: 0.06
+      - name: wm.agent_eval.hallucination_rate_pct
+        type: gauge
+        unit: "%"
+        range: [1.0, 4.0]
+        drift: 0.18
+      - name: wm.agent_eval.avg_latency_ms
+        type: gauge
+        unit: ms
+        range: [900, 1500]
+        drift: 25.0
+      - name: wm.agent_eval.cost_per_1k_tokens_usd
+        type: gauge
+        unit: USD
+        range: [0.005, 0.011]
+        drift: 0.0003
+      - name: wm.agent_eval.escalation_rate_pct
+        type: gauge
+        unit: "%"
+        range: [3, 7]
+        drift: 0.2
+      - name: wm.agent_eval.eval_runs_total
+        type: counter
+        unit: "1"
+        range: [0, 40]
+        drift: 0.8
+      - name: wm.agent_eval.safety_refusals_correct_total
+        type: counter
+        unit: "1"
+        range: [0, 11]
+        drift: 0.3
+      - name: wm.agent_eval.missed_refusals_total
+        type: counter
+        unit: "1"
+        range: [0, 1]
+        drift: 0.03
+    - type: agent_eval_node
+      manufacturer: OpenAI
+      model: gpt-4o-mini
+      firmware: "2026-06"
+      count: 1
+      metrics:
+      - name: wm.agent_eval.decision_accuracy
+        type: gauge
+        unit: "1"
+        range: [0.70, 0.84]
+        drift: 0.013
+      - name: wm.agent_eval.f1_score
+        type: gauge
+        unit: "1"
+        range: [0.68, 0.82]
+        drift: 0.013
+      - name: wm.agent_eval.safety_refusal_rate
+        type: gauge
+        unit: "1"
+        range: [0.78, 0.90]
+        drift: 0.012
+      - name: wm.agent_eval.pii_leak_rate_pct
+        type: gauge
+        unit: "%"
+        range: [1.5, 5.0]
+        drift: 0.2
+      - name: wm.agent_eval.hallucination_rate_pct
+        type: gauge
+        unit: "%"
+        range: [3.0, 8.0]
+        drift: 0.3
+      - name: wm.agent_eval.avg_latency_ms
+        type: gauge
+        unit: ms
+        range: [400, 800]
+        drift: 12.0
+      - name: wm.agent_eval.cost_per_1k_tokens_usd
+        type: gauge
+        unit: USD
+        range: [0.0004, 0.0010]
+        drift: 0.00003
+      - name: wm.agent_eval.escalation_rate_pct
+        type: gauge
+        unit: "%"
+        range: [5, 12]
+        drift: 0.4
+      - name: wm.agent_eval.eval_runs_total
+        type: counter
+        unit: "1"
+        range: [0, 80]
+        drift: 1.2
+      - name: wm.agent_eval.safety_refusals_correct_total
+        type: counter
+        unit: "1"
+        range: [0, 18]
+        drift: 0.5
+      - name: wm.agent_eval.missed_refusals_total
+        type: counter
+        unit: "1"
+        range: [0, 5]
+        drift: 0.15
+
+  # Telematics / route-optimization data pipelines — the "data quality before
+  # the agent" story and the root cause of the incident cascade (plugin).
+  route_data_pipelines:
+    ip_base: '10.62'
+    devices:
+    - type: telematics_pipeline_node
+      manufacturer: Custom
+      model: AirflowDAG
+      firmware: "2.9"
+      count: 4
+      metrics:
+      - name: wm.data.rows_ingested_per_min
+        type: gauge
+        unit: "1"
+        range: [40000, 90000]
+        drift: 600.0
+      - name: wm.data.ingestion_lag_sec
+        type: gauge
+        unit: s
+        range: [8, 60]
+        drift: 2.0
+      - name: wm.data.gps_null_rate_pct
+        type: gauge
+        unit: "%"
+        range: [0.3, 2.0]
+        drift: 0.08
+      - name: wm.data.last_run_age_min
+        type: gauge
+        unit: min
+        range: [2, 15]
+        drift: 0.5
+
+# Trace topology — the WM digital surfaces (customer app, agent, dispatch,
+# gateway, billing, pipeline). Generates APM service traces so the service map
+# + service-level widgets have data. Catalog registration is in services.yaml.
+services:
+- name: wm-ops-agent
+  host: wm-ops-agent-01
+  language: python
+  framework: LangGraph
+  operations:
+  - name: "POST /api/agent/resolve"
+    latency_base_ms: 1400
+    latency_p99_ms: 3800
+    error_rate: 0.011
+  - name: "POST /api/agent/dispatch-reroute"
+    latency_base_ms: 2100
+    latency_p99_ms: 5200
+    error_rate: 0.014
+  - name: "GET /api/agent/audit-trail"
+    latency_base_ms: 110
+    latency_p99_ms: 420
+    error_rate: 0.003
+  dependencies:
+  - service: route-optimization-api
+    operation: "reoptimize_sector"
+    probability: 0.5
+  - service: billing-api
+    operation: "apply_credit"
+    probability: 0.3
+
+- name: my-wm-portal
+  host: my-wm-portal-01
+  language: nodejs
+  framework: Express
+  operations:
+  - name: "GET /portal/where-is-my-truck"
+    latency_base_ms: 85
+    latency_p99_ms: 300
+    error_rate: 0.006
+  - name: "POST /portal/schedule-pickup"
+    latency_base_ms: 140
+    latency_p99_ms: 480
+    error_rate: 0.008
+  dependencies:
+  - service: wm-ops-agent
+    operation: "POST /api/agent/resolve"
+    probability: 0.6
+
+- name: route-optimization-api
+  host: route-opt-01
+  language: go
+  framework: gRPC
+  operations:
+  - name: "reoptimize_sector"
+    latency_base_ms: 320
+    latency_p99_ms: 1200
+    error_rate: 0.009
+  dependencies:
+  - service: telematics-ingest
+    operation: "pull_positions"
+    probability: 0.8
+
+- name: ai-gateway-policy-enforcer
+  host: wm-ai-gw-01
+  language: go
+  framework: Envoy
+  operations:
+  - name: "POST /v1/llm/request"
+    latency_base_ms: 32
+    latency_p99_ms: 110
+    error_rate: 0.005
+  - name: "POST /v1/llm/guardrail-check"
+    latency_base_ms: 16
+    latency_p99_ms: 60
+    error_rate: 0.002
+  dependencies:
+  - service: wm-ops-agent
+    operation: "POST /api/agent/resolve"
+    probability: 0.95
+
+- name: billing-api
+  host: wm-billing-01
+  language: java
+  framework: SpringBoot
+  operations:
+  - name: "apply_credit"
+    latency_base_ms: 70
+    latency_p99_ms: 260
+    error_rate: 0.004

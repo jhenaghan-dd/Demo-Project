@@ -1,0 +1,66 @@
+# WasteManagement — Service Catalog entries for the digital surface behind the
+# fleet: the customer/dispatch AI agent, the customer portal, route
+# optimization, the AI policy gateway, and billing. Tags stay in the existing
+# keyspace (vertical / dd-demo-toolkit auto-injected; team / incident_domain).
+
+services:
+
+  - dd-service: wm-ops-agent
+    display-name: "WM Operations Agent"
+    description: "LangGraph customer + dispatch AI agent: missed-pickup recovery, billing, service changes, and dispatch reroute. Enforces WM policy guardrails (hazardous-material refusal → HHW routing, credit-authority limits, PII protection). Evaluated continuously in LLM Observability (ml_app wm-ops-agent)."
+    owner: "AI Platform"
+    tier: "Tier 1"
+    languages: ["python"]
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:ai-agent-quality"
+
+  - dd-service: my-wm-portal
+    display-name: "My WM Customer Portal"
+    description: "Customer-facing web/app front door — where's-my-truck, schedule pickup, start/stop service, pay bill. Calls the WM Operations Agent for self-service resolution and call deflection."
+    owner: "Customer Experience"
+    tier: "Tier 1"
+    languages: ["nodejs"]
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:customer-experience"
+      - "incident_domain:fleet-operations"
+
+  - dd-service: route-optimization-api
+    display-name: "Route Optimization API"
+    description: "Real-time sector re-optimization for dispatch — rebalances stops on breakdowns/exceptions to preserve same-day SLA. Consumes the telematics ingest pipeline's vehicle positions."
+    owner: "Fleet Operations"
+    tier: "Tier 1"
+    languages: ["go"]
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:fleet-ops"
+      - "incident_domain:fleet-operations"
+
+  - dd-service: ai-gateway-policy-enforcer
+    display-name: "AI Gateway / Policy Enforcer"
+    description: "Envoy gateway in front of the LLM providers. Enforces WM guardrails (PII redaction, hazardous-material policy, prompt-injection detection, credit-authority limits) and emits guardrail outcomes for downstream eval."
+    owner: "AI Platform"
+    tier: "Tier 1"
+    languages: ["go"]
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:ai-platform"
+      - "incident_domain:ai-agent-quality"
+
+  - dd-service: billing-api
+    display-name: "Billing API"
+    description: "Account billing, surcharges, credits, and proration. The agent applies courtesy credits within the AI authority limit and escalates anything above it."
+    owner: "Customer Experience"
+    tier: "Tier 2"
+    languages: ["java"]
+    tags:
+      - "vertical:waste_management"
+      - "dd-demo-toolkit:true"
+      - "team:customer-experience"
+      - "incident_domain:fleet-operations"
