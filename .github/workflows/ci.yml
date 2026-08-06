@@ -93,7 +93,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        vertical: [finance, healthcare, hospitality, insurance, manufacturing]
+        # Keep in step with `verticals/*/config.yaml`. A vertical missing from
+        # this list is never validated in CI, which is how waste_management and
+        # oilgas went unchecked.
+        vertical:
+          [
+            finance,
+            healthcare,
+            hospitality,
+            insurance,
+            manufacturing,
+            oilgas,
+            waste_management,
+          ]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
