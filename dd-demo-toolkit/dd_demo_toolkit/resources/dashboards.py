@@ -6,6 +6,8 @@ Handles deployment, deletion, and listing of Datadog dashboards for verticals.
 
 import json
 import logging
+import os
+import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -13,6 +15,58 @@ from dd_demo_toolkit.utils.dd_api import DatadogAPIClient
 
 
 logger = logging.getLogger(__name__)
+
+# `${VAR}` tokens in dashboard JSON are resolved from the environment at deploy
+# time (e.g. an iframe URL that depends on a live tunnel). This lets a
+# static, deploy-assets dashboard embed a dynamic URL. Only ${UPPER_SNAKE}
+# with braces matches — Datadog template vars (`$metro`, no braces) are left
+# untouched.
+_ENV_TOKEN = re.compile(r"\$\{([A-Z0-9_]+)\}")
+# Convenience fallback: a running `wm-tunnel` writes its HTTPS URL here, so the
+# vertical deploy can embed the live map with no extra env plumbing.
+_TUNNEL_URL_FILE = Path(__file__).resolve().parents[2] / ".secrets" / "wm_tunnel_url.txt"
+
+
+def _resolve_env_value(var: str) -> str:
+    val = os.environ.get(var, "").strip()
+    if val:
+        return val
+    if var == "WM_FLEET_MAP_URL":
+        try:
+            return _TUNNEL_URL_FILE.read_text(encoding="utf-8").strip()
+        except OSError:
+            return ""
+    return ""
+
+
+def _substitute_env(obj: Any) -> Any:
+    """Recursively replace ${VAR} tokens in all strings from the environment."""
+    if isinstance(obj, str):
+        return _ENV_TOKEN.sub(lambda m: _resolve_env_value(m.group(1)), obj)
+    if isinstance(obj, list):
+        return [_substitute_env(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _substitute_env(v) for k, v in obj.items()}
+    return obj
+
+
+def _prune_unresolved_iframes(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop iframe widgets whose URL didn't resolve (empty or still a token),
+    so a missing env var yields a clean native dashboard instead of a 400."""
+    widgets = payload.get("widgets")
+    if not isinstance(widgets, list):
+        return payload
+    kept = []
+    for w in widgets:
+        d = w.get("definition", {}) if isinstance(w, dict) else {}
+        if d.get("type") == "iframe":
+            url = (d.get("url") or "").strip()
+            if not url or "${" in url or not url.startswith(("http://", "https://")):
+                logger.info("dropping iframe widget with unresolved URL %r", url)
+                continue
+        kept.append(w)
+    payload["widgets"] = kept
+    return payload
 
 # Datadog has no API to favorite/star a dashboard (per-user UI preference).
 # Instead we group each vertical's toolkit dashboards into a shared manual
@@ -100,6 +154,12 @@ class DashboardManager:
             try:
                 with open(json_file, "r") as f:
                     payload = json.load(f)
+
+                # Resolve ${VAR} tokens from the env (e.g. a live-tunnel iframe
+                # URL) and drop iframe widgets whose URL didn't resolve. No-op
+                # for dashboards without ${...} tokens or iframe widgets.
+                payload = _substitute_env(payload)
+                payload = _prune_unresolved_iframes(payload)
 
                 # Inject tags using only allowed tag keys.
                 # Many Datadog orgs restrict tag keys (e.g. only "team" and "ai").
