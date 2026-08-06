@@ -274,7 +274,7 @@
     },
     {
       "definition": {
-        "title": "Calls by Type",
+        "title": "Calls by Care Unit",
         "type": "timeseries",
         "requests": [
           {
@@ -287,7 +287,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.nursecall.calls_total{*} by {call.type}.as_count()"
+                "query": "sum:hospital.nursecall.calls_total{*} by {department}.as_count()"
               }
             ],
             "response_format": "timeseries",
@@ -334,7 +334,7 @@
     },
     {
       "definition": {
-        "title": "Escalations by Call Type",
+        "title": "Escalations by Care Unit",
         "type": "timeseries",
         "requests": [
           {
@@ -347,7 +347,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.nursecall.escalations_total{*} by {call.type}.as_count()"
+                "query": "sum:hospital.nursecall.escalations_total{*} by {department}.as_count()"
               }
             ],
             "response_format": "timeseries",
