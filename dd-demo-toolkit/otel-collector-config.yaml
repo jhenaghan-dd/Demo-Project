@@ -41,7 +41,12 @@ exporters:
         cumulative_monotonic_mode: to_delta
     traces:
       span_name_as_resource_name: true
-    hostname: "authorization-db"
+    # Host for OTLP telemetry that carries no resource host.name (the simulator's
+    # device metrics). Driven by DD_HOSTNAME (set per active vertical in
+    # docker-compose) so metrics land on e.g. `waste_management-simulator`, NOT a
+    # hardcoded finance/DBM host. Telemetry that sets its own resource host.name
+    # (the authorization-db worker, service traces) is unaffected.
+    hostname: "${env:DD_HOSTNAME}"
 
   debug:
     verbosity: basic
