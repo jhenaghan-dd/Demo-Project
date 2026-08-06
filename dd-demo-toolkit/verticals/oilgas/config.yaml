@@ -1,0 +1,1086 @@
+# Upstream Oil & Gas — industry-agnostic vertical (art-of-the-possible).
+#
+# The story this vertical exists to tell is "From Field to Forecast": a network
+# outage at a remote well pad opens a gap in field data uploads; the overnight
+# 28-step pipeline processes the short input without failing; degraded data lands
+# in the forecast mart; and the drilling-advisor chatbot answers the next morning
+# from bad inputs. Five hops, walked backwards in about five minutes.
+#
+# This is the GENERIC base vertical. No customer nouns live here — real site
+# names, the customer's orchestrator, and their model stack belong in
+# `overlays/<customer>/`. That split is what makes the vertical reusable at the
+# next E&P account (CLAUDE.md §6).
+#
+# Namespace: env_prefix `oilgas`, used literally in every query. Directory name,
+# `vertical.name` and `env_prefix` are deliberately the same string — renaming
+# later is a repo-wide coordinated edit.
+#
+# ---------------------------------------------------------------------------
+# Metric-design rules this file follows (each traces to a real toolkit bug):
+#
+#   * Every metric declares an explicit `range`. The engine seeds device state at
+#     the range MIDPOINT (simulator/engine.py:66-70) and `MetricConfig.range`
+#     defaults to [0, 100], so an undeclared range emits a flat 50 forever and a
+#     [0,1] boolean emits a flat 0.5. See `hospital.device.online` for the
+#     shipped version of that bug.
+#   * `range` is written as [trough, baseline] wherever the plugin drives the
+#     metric. The engine clamps INCLUSIVELY (`max(lo, min(hi, v))`,
+#     engine.py:662) and plugins run BEFORE the clamp (engine.py:621 vs :629),
+#     so with `drift: 0` a plugin write lands on either endpoint exactly. The
+#     plugin therefore reads its own baseline and trough off the config and the
+#     two cannot drift apart.
+#   * Anything that must be an exact integer or a boolean carries `drift: 0`.
+#     Row counts with drift produce fractional rows — the spurious-precision bug.
+#   * NO `environment_scale`. The engine multiplies every emitted value by it
+#     (engine.py:667-670); finance's `production: 3.0` is why EY's F1 gauge sits
+#     at 2.55 and its quality monitors can never fire.
+#   * NO percentile aggregators consume any metric here (STYLE_GUIDE §1.1).
+# ---------------------------------------------------------------------------
+
+vertical:
+  name: oilgas
+  display_name: Upstream Oil & Gas
+  description: >-
+    Upstream exploration & production — remote well-pad telemetry over
+    intermittent backhaul, a multi-step overnight batch pipeline that moves
+    drilling data through internal systems and a third-party signal vendor into
+    a forecast mart, and the AI drilling advisor that answers from it. Field
+    connectivity, pipeline integrity, warehouse freshness and answer quality in
+    one control plane.
+  env_prefix: oilgas
+  emit_interval_sec: 15
+
+# One dimension, seven values, deliberately.
+#
+# The engine places devices by per-dimension round-robin WITHIN a single device
+# entry: `location = {name: values[i % len(values)]}` for i in range(count)
+# (engine.py:441-447). A `count: 1` device therefore always lands on values[0] of
+# every dimension. With 28 singleton pipeline steps plus the warehouse, handoff
+# and advisor nodes, a naive multi-dimension layout silently pins all of them to
+# the same pad — including the pad the outage targets, which would make every
+# pad-scoped filter and monitor sweep in the whole fleet.
+#
+# So values[0] is `central-ops`, which is truthful for every singleton: the
+# pipeline, the mart and the advisor really do run centrally. Only
+# `field_gateway` has a real count (7), so it alone spreads across the pads.
+# Basin is readable inside each site name, so there is no second dimension to
+# fall out of sync.
+locations:
+  dimensions:
+  - name: site
+    values:
+    - central-ops
+    - permian-pad-a
+    - permian-pad-b
+    - eagle-ford-pad-c
+    - eagle-ford-pad-d
+    - haynesville-pad-e
+    - haynesville-pad-f
+
+device_categories:
+
+  # Well-pad edge gateways — the root cause lives here. One entry with count 7
+  # so the round-robin puts one gateway on each site (six pads + central-ops).
+  #
+  # Note there is no NDM/SNMP telemetry path in this toolkit. These are the
+  # signals an edge gateway reports about itself, NOT Network Device Monitoring.
+  # Say that out loud rather than implying NDM.
+  field_edge:
+    devices:
+    - type: field_gateway
+      manufacturer: Custom
+      model: FieldEdgeGateway
+      firmware: "4.2"
+      count: 7
+      metrics:
+      # The gateway is up; the CELLULAR BACKHAUL is what drops. The gateway
+      # reports its own uplink state over the surviving path, which is why
+      # Datadog still receives metrics during the outage — and why the outage is
+      # an alertable threshold breach rather than a no-data hole. Bits AI SRE
+      # only auto-launches on a transition to ALERT, so a literal telemetry gap
+      # would prevent the investigation from ever starting.
+      - name: oilgas.field.link_up_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.field.records_received_per_min
+        type: gauge
+        unit: "1"
+        range: [0, 780]
+        drift: 0
+      - name: oilgas.field.backhaul_latency_ms
+        type: gauge
+        unit: ms
+        range: [25, 400]
+        drift: 4
+      # The second, damning finding: failover never engages. The plugin holds
+      # this at 0 on every gateway in every phase — the story is the absence of
+      # a rise, not a spike.
+      - name: oilgas.field.failover_engaged_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      # Counter pair backing the uplink-availability SLO. A count-based SLO over
+      # a gauge deploys with a 200 and then shows no data, so these are real
+      # counters. link_ticks_total is a degenerate [1,1] range: always exactly 1
+      # per tick, no plugin involvement. link_down_ticks_total MUST span [0,1] —
+      # a [0,0] range would let the inclusive clamp pin it at zero and the
+      # plugin could never lift it during the outage.
+      - name: oilgas.field.link_ticks_total
+        type: counter
+        unit: "1"
+        range: [1, 1]
+        drift: 0
+      - name: oilgas.field.link_down_ticks_total
+        type: counter
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+
+  # The third-party signal vendor handoff — steps 12 (outbound) and 15 (return).
+  # Both sides move together and proportionally: the vendor processed correctly
+  # what it was given. This is the hop the investigation CLEARS, so nothing here
+  # ever errors.
+  handoff:
+    devices:
+    - type: handoff_node
+      manufacturer: Custom
+      model: VendorSignalHandoff
+      firmware: "2.1"
+      count: 1
+      metrics:
+      - name: oilgas.handoff.records_out_count
+        type: gauge
+        unit: "1"
+        range: [3472, 4960]
+        drift: 0
+      - name: oilgas.handoff.records_in_count
+        type: gauge
+        unit: "1"
+        range: [2964, 4940]
+        drift: 0
+
+  # >>> BEGIN GENERATED — scripts/gen_oilgas_pipeline.py — DO NOT EDIT BY HAND
+  # 28 nightly pipeline steps. Each is a `count: 1` device with a distinct
+  # `model:`, which surfaces as the `device_model` tag - so one
+  # `by {device_model}` split yields 28 named series.
+  #
+  # Every metric declares `range: [trough, baseline]` and `drift: 0`. The
+  # plugin writes range[1] in steady state and range[0] during the incident;
+  # both survive the engine's inclusive clamp exactly. Do not widen a range
+  # without regenerating, or the plugin's trough will be clamped away.
+  nightly_pipeline:
+    devices:
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-01-raw-land-wits-frames
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3640, 5200]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3640, 5200]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [25, 42]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-02-decode-wits-binary
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3640, 5200]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3626, 5180]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [21, 35]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-03-validate-frame-checksums
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3626, 5180]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3584, 5120]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [11, 18]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-04-dedupe-frame-window
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3584, 5120]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3528, 5040]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [16, 27]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-05-normalize-units
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3528, 5040]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3528, 5040]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [9, 15]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-06-merge-rig-state
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3528, 5040]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3514, 5020]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [20, 33]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-07-depth-index-align
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3514, 5020]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3500, 5000]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [35, 58]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-08-mudlog-join
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3500, 5000]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3493, 4990]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [44, 74]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-09-survey-interpolate
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3493, 4990]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3493, 4990]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [37, 61]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-10-drilling-params-rollup
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3493, 4990]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3472, 4960]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [28, 46]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-11-quality-flag-annotate
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3472, 4960]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3472, 4960]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [13, 22]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-12-stage-outbound-vendor-drop
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3472, 4960]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3472, 4960]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [23, 38]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-13-compress-encrypt-outbound
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [3472, 4960]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [3472, 4960]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [17, 29]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-14-thirdparty-signal-ingest
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2976, 4960]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2964, 4940]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [99, 165]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-15-vendor-return-pickup
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2964, 4940]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2964, 4940]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [26, 44]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-16-decode-vendor-signals
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2964, 4940]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2958, 4930]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [22, 36]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-17-reconcile-vendor-keys
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2958, 4930]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2940, 4900]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [31, 52]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-18-formation-tops-enrich
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2940, 4900]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2940, 4900]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [40, 67]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-19-offset-well-lookup
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2940, 4900]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2928, 4880]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [49, 81]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-20-rop-model-features
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2928, 4880]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2928, 4880]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [56, 93]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-21-bit-wear-features
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2928, 4880]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2922, 4870]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [53, 88]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-22-vibration-spectra-features
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2922, 4870]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2922, 4870]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [74, 124]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-23-feature-store-upsert
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2922, 4870]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2910, 4850]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [34, 57]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-24-forecast-model-score
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2910, 4850]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2910, 4850]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [85, 142]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-25-confidence-band-compute
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2910, 4850]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2904, 4840]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [29, 49]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-26-recommendation-assemble
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2904, 4840]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2904, 4840]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [19, 31]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-27-warehouse-stage-load
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2904, 4840]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2892, 4820]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [71, 118]
+        drift: 0
+    - type: pipeline_step
+      manufacturer: Custom
+      model: step-28-publish-forecast-mart
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - name: oilgas.pipeline.rows_in_count
+        type: gauge
+        unit: "1"
+        range: [2892, 4820]
+        drift: 0
+      - name: oilgas.pipeline.rows_out_count
+        type: gauge
+        unit: "1"
+        range: [2880, 4800]
+        drift: 0
+      - name: oilgas.pipeline.step_status_state
+        type: gauge
+        unit: "1"
+        range: [0, 1]
+        drift: 0
+      - name: oilgas.pipeline.step_duration_sec
+        type: gauge
+        unit: s
+        range: [38, 64]
+        drift: 0
+  # <<< END GENERATED
+
+  # The forecast mart. Freshness and row count move WITH the advisor's answer
+  # quality, not ahead of it — the mart is the advisor's input, so there is no
+  # lag between them. Resist the urge to stagger these for drama.
+  warehouse:
+    devices:
+    - type: warehouse_node
+      manufacturer: Custom
+      model: ForecastMart
+      firmware: "3.4"
+      count: 1
+      metrics:
+      - name: oilgas.warehouse.rows_loaded_count
+        type: gauge
+        unit: "1"
+        range: [2880, 4800]
+        drift: 0
+      - name: oilgas.warehouse.table_freshness_min
+        type: gauge
+        unit: min
+        range: [35, 540]
+        drift: 0
+      - name: oilgas.warehouse.null_row_pct
+        type: gauge
+        unit: percent
+        range: [1, 22]
+        drift: 0
+      - name: oilgas.warehouse.query_queue_depth_count
+        type: gauge
+        unit: "1"
+        range: [4, 38]
+        drift: 0
+
+  # The AI drilling advisor's answer-quality evaluators. Three models, distinct
+  # `model:` values so `by {device_model}` splits them.
+  #
+  # All three regress TOGETHER. That simultaneity is the evidence that rules out
+  # the model and the prompt in hop 1 and forces the investigation upstream —
+  # a single model regressing would be a model problem, not a data problem.
+  #
+  # Model names here are generic. A customer's real stack goes in their overlay.
+  expert_eval:
+    devices:
+    - type: expert_eval_node
+      manufacturer: Custom
+      model: advisor-primary
+      firmware: "1.0"
+      count: 1
+      metrics: &advisor_metrics
+      - name: oilgas.expert.answer_confidence_ratio
+        type: gauge
+        unit: "1"
+        range: [0.52, 0.91]
+        drift: 0
+      - name: oilgas.expert.grounding_score_ratio
+        type: gauge
+        unit: "1"
+        range: [0.48, 0.94]
+        drift: 0
+      - name: oilgas.expert.stale_input_rate_pct
+        type: gauge
+        unit: percent
+        range: [1, 34]
+        drift: 0
+      # Counter pair backing the answer-confidence SLO.
+      - name: oilgas.expert.answers_total
+        type: counter
+        unit: "1"
+        range: [50, 50]
+        drift: 0
+      - name: oilgas.expert.low_confidence_answers_total
+        type: counter
+        unit: "1"
+        range: [2, 18]
+        drift: 0
+    - type: expert_eval_node
+      manufacturer: Custom
+      model: advisor-secondary
+      firmware: "1.0"
+      count: 1
+      metrics: *advisor_metrics
+    - type: expert_eval_node
+      manufacturer: Custom
+      model: advisor-fallback
+      firmware: "1.0"
+      count: 1
+      metrics: *advisor_metrics
+
+# Trace topology. Every service MUST declare `language:` as a real key and a
+# NON-EMPTY `operations:` list — `_generate_service_trace` early-returns on
+# `if not service or not service.operations` (engine.py:707-709) before the
+# spans, the per-service logs, the auto-created `oilgas.app.*` counters
+# (engine.py:789-800) AND the cross-service `peer.service` edge that draws the
+# Service Map (engine.py:807-813). A service with no operations deploys a
+# Service Catalog entry that renders an empty page, which is worse than nothing
+# in front of a customer.
+#
+# Do NOT use `language: nodejs` — `_DOWNSTREAM_TEMPLATES` (engine.py:244-260)
+# supports only java/dotnet/python/go/swift, and nodejs silently yields no child
+# spans. Every `dependencies` entry declares an explicit `operation:`; a missing
+# one is defensively rewritten to "" (engine.py:198-204), producing a nameless
+# span on a service page the investigation asks the SE to open.
+services:
+- name: expert-api
+  host: expert-api-01
+  language: python
+  framework: FastAPI
+  operations:
+  - name: "POST /api/advisor/ask"
+    latency_base_ms: 1400
+    latency_p99_ms: 3800
+    error_rate: 0.011
+  - name: "GET /api/advisor/citations"
+    latency_base_ms: 180
+    latency_p99_ms: 620
+    error_rate: 0.004
+  dependencies:
+  - service: warehouse-loader
+    operation: "query_forecast_mart"
+    probability: 0.85
+
+- name: warehouse-loader
+  host: warehouse-loader-01
+  language: python
+  framework: SQLAlchemy
+  operations:
+  - name: "query_forecast_mart"
+    latency_base_ms: 240
+    latency_p99_ms: 900
+    error_rate: 0.003
+  - name: "load_nightly_batch"
+    latency_base_ms: 3100
+    latency_p99_ms: 7400
+    error_rate: 0.002
+
+- name: pipeline-orchestrator
+  host: pipeline-orch-01
+  language: python
+  framework: Airflow
+  operations:
+  - name: "run_nightly_forecast_dag"
+    latency_base_ms: 2600
+    latency_p99_ms: 6800
+    error_rate: 0.002
+  dependencies:
+  - service: thirdparty-signal-api
+    operation: "POST /v1/signal-batch"
+    probability: 0.8
+  - service: warehouse-loader
+    operation: "load_nightly_batch"
+    probability: 0.9
+
+# error_rate 0.0 on both operations is deliberate and load-bearing. Hop 4 of the
+# investigation clears this service, and "error rate flat throughout" has to be
+# literally true rather than merely asserted. Absence of signal is the evidence.
+- name: thirdparty-signal-api
+  host: signal-vendor-edge-01
+  language: java
+  framework: SpringBoot
+  operations:
+  - name: "POST /v1/signal-batch"
+    latency_base_ms: 310
+    latency_p99_ms: 1100
+    error_rate: 0.0
+  - name: "GET /v1/signal-batch/status"
+    latency_base_ms: 90
+    latency_p99_ms: 300
+    error_rate: 0.0
+
+- name: field-ingest-gateway
+  host: field-ingest-01
+  language: go
+  framework: gRPC
+  operations:
+  - name: "ingest_wits_frame"
+    latency_base_ms: 45
+    latency_p99_ms: 210
+    error_rate: 0.006
+  dependencies:
+  - service: pipeline-orchestrator
+    operation: "run_nightly_forecast_dag"
+    probability: 0.3

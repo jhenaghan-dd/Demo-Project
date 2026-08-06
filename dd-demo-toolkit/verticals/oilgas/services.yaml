@@ -1,0 +1,56 @@
+# Upstream Oil & Gas — Service Catalog entries for the five services declared in
+# config.yaml. These are the APM topology behind the Field-to-Forecast walk:
+# field ingest → orchestrator → signal vendor → warehouse loader → advisor API.
+#
+# Tagging note: only `incident_domain:` survives from this file.
+# `_build_service_payload` (dd_demo_toolkit/resources/services.py:170-180)
+# STRIPS every `team:` tag supplied here and substitutes `team:dd-demo-oilgas`,
+# and auto-injects `vertical:oilgas` + `dd-demo-toolkit:true`. Declaring any of
+# those three here is dead weight, so they are omitted.
+
+services:
+
+  - dd-service: field-ingest-gateway
+    display-name: "Field Ingest Gateway"
+    description: "Terminates WITS/WITSML frame uploads from well-pad edge gateways over cellular, Starlink, fiber or licensed radio backhaul. Buffers and forwards to the nightly forecast pipeline. Upload continuity here is the first thing to check when downstream row counts come up short."
+    owner: "Field Operations"
+    tier: "Tier 1"
+    languages: ["go"]
+    tags:
+      - "incident_domain:field-to-forecast"
+
+  - dd-service: pipeline-orchestrator
+    display-name: "Nightly Forecast Pipeline Orchestrator"
+    description: "Runs the 28-step overnight batch that turns raw field frames into scored drilling recommendations. Steps complete independently, so the DAG can finish green on incomplete input — per-step row-count continuity, not job status, is the signal that matters."
+    owner: "Data Platform"
+    tier: "Tier 1"
+    languages: ["python"]
+    tags:
+      - "incident_domain:field-to-forecast"
+
+  - dd-service: thirdparty-signal-api
+    display-name: "Third-Party Signal Vendor API"
+    description: "External petrophysical signal enrichment. The pipeline drops a batch outbound at step 12 and collects the enriched return at step 15. The vendor enriches by key match, so partial input yields disproportionately fewer returned signals — without ever raising an error."
+    owner: "Integration"
+    tier: "Tier 2"
+    languages: ["java"]
+    tags:
+      - "incident_domain:field-to-forecast"
+
+  - dd-service: warehouse-loader
+    display-name: "Forecast Mart Loader"
+    description: "Loads the scored nightly batch into the forecast mart and serves point queries from the drilling advisor. Row count and table freshness on the mart are the advisor's input contract — they move with answer quality, not ahead of it."
+    owner: "Data Platform"
+    tier: "Tier 1"
+    languages: ["python"]
+    tags:
+      - "incident_domain:field-to-forecast"
+
+  - dd-service: expert-api
+    display-name: "AI Drilling Advisor API"
+    description: "Answers drilling-program questions (rate of penetration, depth adjustment, bit selection) by retrieving from the forecast mart and grounding a model response on it. Answer quality is evaluated continuously; all evaluator models regressing together points upstream at the data, not at the model."
+    owner: "AI Platform"
+    tier: "Tier 1"
+    languages: ["python"]
+    tags:
+      - "incident_domain:field-to-forecast"
