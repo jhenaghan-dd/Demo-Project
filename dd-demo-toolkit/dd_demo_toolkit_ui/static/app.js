@@ -68,6 +68,12 @@
       "setup":        { state: "idle", pid: null, started_at: null, uptime_seconds: null, exit_code: null, last_error: null },
       "teardown":     { state: "idle", pid: null, started_at: null, uptime_seconds: null, exit_code: null, last_error: null },
       "teardown-all": { state: "idle", pid: null, started_at: null, uptime_seconds: null, exit_code: null, last_error: null },
+      // WasteManagement art-of-the-possible (plain-Python children).
+      "wm-fleet":           { state: "idle", pid: null, started_at: null, uptime_seconds: null, exit_code: null, last_error: null },
+      "wm-tunnel":          { state: "idle", pid: null, started_at: null, uptime_seconds: null, exit_code: null, last_error: null },
+      "wm-dashboard":       { state: "idle", pid: null, started_at: null, uptime_seconds: null, exit_code: null, last_error: null },
+      "wm-llm-experiments": { state: "idle", pid: null, started_at: null, uptime_seconds: null, exit_code: null, last_error: null },
+      "wm-llm-traces":      { state: "idle", pid: null, started_at: null, uptime_seconds: null, exit_code: null, last_error: null },
     },
     // Active EventSource by process name (so we can close on tab switch /
     // restart and avoid leaks). One per process.
@@ -392,10 +398,14 @@
     if (name === "simulator") {
       return document.querySelector('[data-log-pane="simulator"]');
     }
+    if (name.startsWith("wm-")) {
+      return document.querySelector('[data-log-pane="wm"]');
+    }
     return document.querySelector('[data-log-pane="deploy"]');
   }
   function autoscrollCheckboxFor(name) {
     if (name === "simulator") return document.querySelector("#sim-autoscroll");
+    if (name.startsWith("wm-")) return document.querySelector("#wm-autoscroll");
     return document.querySelector("#deploy-autoscroll");
   }
   function logSourceLabelFor(name) {
@@ -451,7 +461,7 @@
 
   // Restore both panels' persisted levels on load (default Info+).
   function initLogLevels() {
-    for (const panel of ["simulator", "deploy"]) {
+    for (const panel of ["simulator", "deploy", "wm"]) {
       applyLogLevel(panel, loadLogLevel(panel));
     }
   }

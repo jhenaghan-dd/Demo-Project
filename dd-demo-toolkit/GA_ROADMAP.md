@@ -118,6 +118,7 @@ Per [CLAUDE.md](CLAUDE.md) §0.6, every SE-facing capability must be reachable f
 | Deploy assets | Deploy tab ✓ | — |
 | Teardown / teardown-all | Deploy tab ✓ | — |
 | Status (containers + DD resources) | Status tab ✓ | — |
+| WasteManagement demo (fleet-as-hosts, live map, LLM Obs traces + experiments) | WasteManagement tab ✓ (fleet / dashboard / scorecard / traces via the process supervisor) | — |
 | Preflight / environment doctor | ✗ | Phase 1 — `/api/doctor` + Preflight card |
 | Validate assets locally | ✗ | Phase 1 — `/api/validate` + Deploy-tab gate |
 | Product coverage matrix | ✗ | Phase 2 — `/api/coverage` |

@@ -51,6 +51,7 @@ import json
 import logging
 import os
 import signal
+import sys
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -118,6 +119,60 @@ PROCESS_DEFS: Dict[str, Dict[str, object]] = {
             "docker", "compose", "--profile", "teardown-all",
             "run", "--rm", "--remove-orphans", "teardown-all",
         ],
+        "stop_signal": signal.SIGTERM,
+        "stop_followup_argv": None,
+        "long_running": False,
+    },
+
+    # --- WasteManagement art-of-the-possible --------------------------------
+    # These run local Python (agentless / Datadog API-key), NOT docker compose,
+    # so each carries its own interpreter argv (sys.executable = the .venv-ui
+    # Python running this server, which has dd_demo_toolkit + ddtrace). They set
+    # `compose_reconcile: False` so the supervisor doesn't run `docker compose
+    # ps` against them. The UI server is launched via `op run` (see
+    # _validate_env_resolved), so spawned children inherit DD_API_KEY/DD_APP_KEY.
+    # Optional per-def `env` is merged over the inherited environment at spawn.
+    "wm-fleet": {
+        # trucks-as-hosts emitter + live map server (:8088)
+        "argv": [sys.executable, "docker/waste_management/run.py"],
+        "stop_signal": signal.SIGINT,
+        "stop_followup_argv": None,
+        "long_running": True,
+        "compose_reconcile": False,
+    },
+    "wm-llm-traces": {
+        # streaming agentic LLM Obs traces (ml_app wm-ops-agent)
+        "argv": [sys.executable, "wm_agentic_demo/wm_ops_agent.py"],
+        "stop_signal": signal.SIGINT,
+        "stop_followup_argv": None,
+        "long_running": True,
+        "compose_reconcile": False,
+    },
+    "wm-llm-experiments": {
+        # looping LLM Obs experiments scorecard — re-runs the model matrix on
+        # an interval so the Experiments view accrues trend history.
+        "argv": [sys.executable, "wm_agentic_demo/wm_ops_experiments.py"],
+        "stop_signal": signal.SIGINT,
+        "stop_followup_argv": None,
+        "long_running": True,
+        "compose_reconcile": False,
+        "env": {"EXPERIMENT_INTERVAL_SEC": "300"},
+    },
+    "wm-tunnel": {
+        # Cloudflare quick tunnel → publishes the local map over HTTPS and
+        # writes its URL to .secrets/wm_tunnel_url.txt, which wm-dashboard reads
+        # to embed the live map. Start this BEFORE wm-dashboard for the embed.
+        "argv": ["bash", "docker/waste_management/tunnel.sh"],
+        "stop_signal": signal.SIGINT,
+        "stop_followup_argv": None,
+        "long_running": True,
+        "compose_reconcile": False,
+    },
+    "wm-dashboard": {
+        # one-shot: create the Fleet Operations dashboard. Embeds the live map
+        # iframe automatically if wm-tunnel is running (URL file present);
+        # otherwise deploys native widgets only. Idempotent (dedups by title).
+        "argv": [sys.executable, "docker/waste_management/deploy_dashboard.py", "create"],
         "stop_signal": signal.SIGTERM,
         "stop_followup_argv": None,
         "long_running": False,
@@ -285,6 +340,7 @@ class ProcessSupervisor:
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,  # merge so order is preserved
                     cwd=str(self.project_dir),
+                    env=self._env_for(name),
                     # New process group so SIGINT/SIGTERM can hit the
                     # whole tree (docker compose forks ssh-agent helpers
                     # etc. for some operations).
@@ -415,6 +471,16 @@ class ProcessSupervisor:
             raise UnknownProcessError(
                 f"unknown process '{name}'. Known: {sorted(PROCESS_DEFS)}"
             )
+
+    def _env_for(self, name: str) -> Optional[Dict[str, str]]:
+        """Environment for the child: inherit the server's (op-resolved) env,
+        then merge any per-def `env` overrides. Returns None to inherit
+        unchanged (the common case) so we don't copy the environ needlessly."""
+        overrides = PROCESS_DEFS.get(name, {}).get("env")
+        if not overrides:
+            return None
+        assert isinstance(overrides, dict)
+        return {**os.environ, **overrides}
 
     def _argv_for(self, name: str) -> List[str]:
         argv = PROCESS_DEFS[name]["argv"]
@@ -643,6 +709,8 @@ class ProcessSupervisor:
         """
         if not PROCESS_DEFS.get(name, {}).get("long_running"):
             return
+        if PROCESS_DEFS.get(name, {}).get("compose_reconcile", True) is False:
+            return  # plain-Python process (e.g. WM) — not a compose service
         async with self._lock(name):
             h = self._get_or_create(name)
             if h.state in (ProcessState.RUNNING, ProcessState.STOPPING):

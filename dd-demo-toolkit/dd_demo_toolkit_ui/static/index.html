@@ -22,6 +22,7 @@
     <button class="tab active" data-tab="configure" type="button">Configure</button>
     <button class="tab" data-tab="simulator" type="button">Simulator</button>
     <button class="tab" data-tab="deploy" type="button">Deploy assets</button>
+    <button class="tab" data-tab="wm" type="button">WasteManagement</button>
     <button class="tab" data-tab="status" type="button">Status</button>
   </nav>
 
@@ -324,6 +325,107 @@
     </section>
 
     <!-- =========================== STATUS TAB ============================== -->
+    <!-- ======================= WASTEMANAGEMENT TAB ======================= -->
+    <section class="tab-panel" data-tab-panel="wm" hidden>
+      <section class="card" id="card-wm">
+        <h2>WasteManagement — art of the possible</h2>
+        <p class="muted">
+          Standalone WM demo assets, run as children of this UI server (they
+          inherit the op-resolved <code>DD_API_KEY</code> /
+          <code>DD_APP_KEY</code> — secrets stay in 1Password). These are
+          <strong>not</strong> a <code>verticals/</code> overlay; they run local
+          Python, agentless. Start each independently.
+        </p>
+        <div class="row process-row" data-process="wm-fleet">
+          <div class="process-status">
+            <span class="process-name">wm-fleet</span>
+            <span class="status-pill" data-state="idle">idle</span>
+            <span class="muted process-uptime"></span>
+            <span class="muted process-info">~96 trucks as Datadog hosts + live map on <a href="http://localhost:8088" target="_blank" rel="noopener">localhost:8088</a></span>
+          </div>
+          <div class="process-actions">
+            <button class="primary" data-action="start">Start fleet</button>
+            <button data-action="stop" disabled>Stop</button>
+          </div>
+        </div>
+
+        <div class="row process-row" data-process="wm-tunnel">
+          <div class="process-status">
+            <span class="process-name">wm-tunnel</span>
+            <span class="status-pill" data-state="idle">idle</span>
+            <span class="muted process-uptime"></span>
+            <span class="muted process-info">optional: publish the map over HTTPS (Cloudflare) so the dashboard can embed it — start before "Create dashboard"</span>
+          </div>
+          <div class="process-actions">
+            <button data-action="start">Start tunnel</button>
+            <button data-action="stop" disabled>Stop</button>
+          </div>
+        </div>
+
+        <div class="row process-row" data-process="wm-dashboard">
+          <div class="process-status">
+            <span class="process-name">wm-dashboard</span>
+            <span class="status-pill" data-state="idle">idle</span>
+            <span class="muted process-uptime"></span>
+            <span class="muted process-info">one-shot: create the Fleet Operations dashboard (Host Map + KPIs; embeds the live map if wm-tunnel is running)</span>
+          </div>
+          <div class="process-actions">
+            <button class="primary" data-action="start">Create dashboard</button>
+            <button data-action="stop" disabled>Stop</button>
+          </div>
+        </div>
+
+        <div class="row process-row" data-process="wm-llm-experiments">
+          <div class="process-status">
+            <span class="process-name">wm-llm-experiments</span>
+            <span class="status-pill" data-state="idle">idle</span>
+            <span class="muted process-uptime"></span>
+            <span class="muted process-info">LLM Obs experiments scorecard — loops the model matrix every ~5 min</span>
+          </div>
+          <div class="process-actions">
+            <button class="primary" data-action="start">Start scorecard</button>
+            <button data-action="stop" disabled>Stop</button>
+          </div>
+        </div>
+
+        <div class="row process-row" data-process="wm-llm-traces">
+          <div class="process-status">
+            <span class="process-name">wm-llm-traces</span>
+            <span class="status-pill" data-state="idle">idle</span>
+            <span class="muted process-uptime"></span>
+            <span class="muted process-info">streaming agentic LLM Obs traces (ml_app:wm-ops-agent)</span>
+          </div>
+          <div class="process-actions">
+            <button class="primary" data-action="start">Start traces</button>
+            <button data-action="stop" disabled>Stop</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card card-log">
+        <div class="log-toolbar">
+          <h2>Live log</h2>
+          <span class="muted log-source">no run yet</span>
+          <span class="spacer"></span>
+          <label class="log-level">
+            level
+            <select id="wm-log-level" data-log-level="wm">
+              <option value="err">Errors only</option>
+              <option value="warn">Warnings+</option>
+              <option value="info" selected>Info+</option>
+              <option value="debug">Debug (all)</option>
+            </select>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" id="wm-autoscroll" checked />
+            auto-scroll
+          </label>
+          <button data-log-target="wm" data-log-action="clear" type="button">Clear</button>
+        </div>
+        <pre class="log-pane" data-log-pane="wm"></pre>
+      </section>
+    </section>
+
     <section class="tab-panel" data-tab-panel="status" hidden>
 
       <section class="card" id="card-containers">
