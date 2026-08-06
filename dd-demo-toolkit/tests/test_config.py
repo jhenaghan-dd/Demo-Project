@@ -7,13 +7,28 @@ import yaml
 from pathlib import Path
 from dd_demo_toolkit.config import ConfigLoader, ConfigError
 
+# Discovered rather than hardcoded, so a new vertical is covered by these tests
+# the moment its config.yaml exists. The previous hardcoded four-vertical list
+# silently excluded `hospitality` and `waste_management`.
+ALL_VERTICALS = ConfigLoader().list_verticals()
+
+# Verticals that must always be present. Adding a vertical should not require
+# editing this list; removing or renaming one should fail loudly.
+CORE_VERTICALS = [
+    "finance",
+    "healthcare",
+    "hospitality",
+    "insurance",
+    "manufacturing",
+]
+
 
 class TestConfigLoading:
     """Test configuration file loading for all verticals."""
 
     def test_all_verticals_load_without_error(self):
         """Test that all four vertical configs load successfully."""
-        verticals = ["healthcare", "finance", "manufacturing", "insurance"]
+        verticals = ALL_VERTICALS
         loader = ConfigLoader()
 
         for vertical in verticals:
@@ -31,7 +46,7 @@ class TestConfigLoading:
         }
 
         loader = ConfigLoader()
-        verticals = ["healthcare", "finance", "manufacturing", "insurance"]
+        verticals = ALL_VERTICALS
 
         for vertical in verticals:
             config = loader.load_vertical(vertical)
@@ -52,7 +67,7 @@ class TestConfigLoading:
     def test_device_count_is_positive(self):
         """Test that all devices have positive counts."""
         loader = ConfigLoader()
-        verticals = ["healthcare", "finance", "manufacturing", "insurance"]
+        verticals = ALL_VERTICALS
 
         for vertical in verticals:
             config = loader.load_vertical(vertical)
@@ -69,7 +84,7 @@ class TestConfigLoading:
     def test_services_have_required_fields(self):
         """Test that services config exists and has required fields."""
         loader = ConfigLoader()
-        verticals = ["healthcare", "finance", "manufacturing", "insurance"]
+        verticals = ALL_VERTICALS
         verticals_base = Path(__file__).parent.parent / "verticals"
 
         for vertical in verticals:
@@ -97,7 +112,7 @@ class TestConfigValidation:
     def test_vertical_name_matches_directory(self):
         """Test that vertical config name matches its directory name."""
         loader = ConfigLoader()
-        verticals = ["healthcare", "finance", "manufacturing", "insurance"]
+        verticals = ALL_VERTICALS
 
         for vertical_name in verticals:
             config = loader.load_vertical(vertical_name)
@@ -140,7 +155,7 @@ class TestConfigValidation:
     def test_display_name_not_empty(self):
         """Test that all verticals have non-empty display names."""
         loader = ConfigLoader()
-        verticals = ["healthcare", "finance", "manufacturing", "insurance"]
+        verticals = ALL_VERTICALS
 
         for vertical in verticals:
             config = loader.load_vertical(vertical)
@@ -154,7 +169,7 @@ class TestConfigValidation:
         import re
 
         loader = ConfigLoader()
-        verticals = ["healthcare", "finance", "manufacturing", "insurance"]
+        verticals = ALL_VERTICALS
         identifier_pattern = re.compile(r"^[a-z_][a-z0-9_]*$")
 
         for vertical in verticals:
@@ -168,17 +183,20 @@ class TestConfigValidation:
 class TestVerticalListing:
     """Test vertical discovery and listing."""
 
-    def test_list_verticals_returns_all_five(self):
-        """Test that list_verticals returns all five verticals."""
+    def test_list_verticals_includes_core_verticals(self):
+        """Test that list_verticals discovers at least the core verticals.
+
+        Deliberately a superset check, not an exact count: adding a vertical is
+        a supported, additive operation and must not break an unrelated test.
+        """
         loader = ConfigLoader()
         verticals = loader.list_verticals()
 
-        assert len(verticals) == 5, f"Expected 5 verticals, got {len(verticals)}"
-        expected = ["finance", "healthcare", "hospitality", "insurance", "manufacturing"]
-        for exp in expected:
+        for exp in CORE_VERTICALS:
             assert (
                 exp in verticals
             ), f"Expected vertical '{exp}' not found in list"
+        assert verticals == sorted(verticals), "list_verticals must return sorted names"
 
     def test_list_verticals_includes_metadata(self):
         """Test that each vertical name in list is non-empty and loadable."""
