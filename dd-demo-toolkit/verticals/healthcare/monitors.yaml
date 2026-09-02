@@ -23,7 +23,7 @@ monitors:
 
   - name: "[Healthcare] Medical Device Signal Degradation"
     type: "query alert"
-    query: "avg(last_5m):avg:hospital.device.signal_strength_dbm{device_category:medical_iot} by {device_id,device_type,floor,wing} < -70"
+    query: "avg(last_5m):avg:hospital.device.signal_strength_dbm{category:medical_iot} by {device_id,device_type,floor,wing} < -70"
     message: "📶 Device {{device_type}} signal degrading on Floor {{floor}} {{wing}}. Check WiFi AP status."
     tags:
       - "vertical:healthcare"
@@ -34,7 +34,7 @@ monitors:
 
   - name: "[Healthcare] Critical Medical Device Offline"
     type: "query alert"
-    query: "sum(last_5m):sum:hospital.device.online{device_category:medical_iot} by {device_id,device_type,floor,wing} < 1"
+    query: "sum(last_5m):sum:hospital.device.online{category:medical_iot} by {device_id,device_type,floor,wing} < 1"
     message: "🚨 Device {{device_type}} offline on Floor {{floor}} {{wing}}. Check network signal and AP channel utilization."
     tags:
       - "vertical:healthcare"
@@ -75,8 +75,8 @@ monitors:
 
   - name: "[Healthcare] Pharmacy Dispensing API Latency Anomaly"
     type: "query alert"
-    query: "avg(last_5m):p99:hospital.app.latency_ms{service_name:pharmacy-dispensing-api} > 2000"
-    message: "💊 Pharmacy API p99 latency spiking. Check database connection pool and query performance."
+    query: "avg(last_5m):max:hospital.app.latency_ms{service_name:pharmacy-dispensing-api} > 2000"
+    message: "💊 Pharmacy API latency spiking. Check database connection pool and query performance."
     tags:
       - "vertical:healthcare"
       - "dd-demo-toolkit:true"

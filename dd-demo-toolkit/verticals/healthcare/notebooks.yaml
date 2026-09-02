@@ -1,9 +1,9 @@
 notebooks:
 
   - id: "incident-investigation-floor3east"
-    name: "🏥 Incident Investigation: Infusion Pumps Offline — Floor 3 East"
+    name: "Incident Investigation: Infusion Pumps Offline - Floor 3 East"
     type: investigation
-    description: "Cross-domain RCA: WiFi AP saturation → device signal degradation → pump disconnects. Demonstrates correlation between network infrastructure and medical device health."
+    description: "Cross-domain RCA: WiFi AP saturation -> device signal degradation -> pump disconnects. Demonstrates correlation between network infrastructure and medical device health."
     time_range: "1h"
     tags: ["vertical:healthcare", "dd-demo-toolkit:true", "incident_domain:network-to-device"]
     cells:
@@ -12,19 +12,19 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              # Infusion Pumps Offline — Floor 3 East
+              # Infusion Pumps Offline - Floor 3 East
 
               **Symptom report:** Charge nurse on **3 East** pages: *"Several
               infusion pumps dropped off the monitor and a couple are showing
               disconnect alarms."*
 
-              **Where to look first?** The pumps. But the pumps are healthy —
+              **Where to look first?** The pumps. But the pumps are healthy -
               battery, CPU, and mechanics are normal. The disconnects are a
               *network* symptom, not a device fault. This notebook walks
               upstream from the device to the WiFi infrastructure.
 
               ---
-              ## Step 1 — Confirm the symptom: device connectivity
+              ## Step 1 - Confirm the symptom: device connectivity
         type: "notebook_cells"
 
       - attributes:
@@ -55,9 +55,9 @@ notebooks:
               which rules out a fleet-wide outage or a backend problem.
 
               ---
-              ## Step 2 — Rule out the obvious-but-wrong lane: device health
+              ## Step 2 - Rule out the obvious-but-wrong lane: device health
 
-              On-device health is fine — battery and CPU are nominal, so the
+              On-device health is fine - battery and CPU are nominal, so the
               pumps themselves aren't failing:
         type: "notebook_cells"
 
@@ -87,11 +87,11 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 3 — Walk upstream: WiFi channel saturation (root cause)
+              ## Step 3 - Walk upstream: WiFi channel saturation (root cause)
 
               The access points serving 3 East are saturated. Channel
               utilization climbs past the 80% congestion threshold and
-              retransmits spike — the root cause:
+              retransmits spike - the root cause:
         type: "notebook_cells"
 
       - attributes:
@@ -124,10 +124,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 4 — Leading indicator: device signal strength
+              ## Step 4 - Leading indicator: device signal strength
 
-              As the channel saturates, the pumps' signal strength degrades
-              toward the -75 dBm disconnect risk line — the mechanism that
+              As the channel saturates, the pumps'signal strength degrades
+              toward the -75 dBm disconnect risk line - the mechanism that
               links the network root cause to the device symptom:
         type: "notebook_cells"
 
@@ -156,10 +156,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 5 — Downstream impact: pump alarms
+              ## Step 5 - Downstream impact: pump alarms
 
               Occlusion and air-in-line alarms rise as pumps drop and
-              reconnect — the clinically visible consequence:
+              reconnect - the clinically visible consequence:
         type: "notebook_cells"
 
       - attributes:
@@ -193,9 +193,9 @@ notebooks:
               **Fix:** re-balance the 3 East AP channel plan / cap clients per
               AP. Signal recovers, pumps re-associate, alarms clear.
 
-              **Why it matters:** a "pump problem" was really a network problem.
-              Cross-domain correlation (network → device → clinical) turned a
-              biomed truck-roll into a 5-minute Wi-Fi config change — and kept
+              **Why it matters:** a "pump problem"was really a network problem.
+              Cross-domain correlation (network -> device -> clinical) turned a
+              biomed truck-roll into a 5-minute Wi-Fi config change - and kept
               infusions running on a full MedSurg wing.
         type: "notebook_cells"
 
@@ -211,7 +211,7 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              # Hospital IT System Health — 30-Day Executive Summary
+              # Hospital IT System Health - 30-Day Executive Summary
 
               Leadership view of the connected-hospital estate: device fleet
               uptime, clinical-service responsiveness, and patient experience.
@@ -292,17 +292,17 @@ notebooks:
             text: |
               ## Recommendations
 
-              1. **Network capacity on high-density wings** — the month's
+              1. **Network capacity on high-density wings** - the month's
                  notable incident (3 East pump disconnects) traced to WiFi
                  saturation; fund the AP refresh for MedSurg.
-              2. **Sustain nurse-call SLA** — attainment is at target; hold
+              2. **Sustain nurse-call SLA** - attainment is at target; hold
                  staffing / routing steady.
-              3. **Device lifecycle** — battery-powered fleet uptime is healthy;
+              3. **Device lifecycle** - battery-powered fleet uptime is healthy;
                  continue the rolling replacement schedule.
         type: "notebook_cells"
 
   - id: "workflow-alert-triage"
-    name: "⚙️ Workflow: Device Alert Triage & Escalation"
+    name: "Workflow: Device Alert Triage & Escalation"
     type: runbook
     description: "Alert classification and PagerDuty routing automation. Triage logic, escalation policies, Slack notifications."
     time_range: "4h"
@@ -313,14 +313,14 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              # Device Alert Triage & Escalation — Runbook
+              # Device Alert Triage & Escalation - Runbook
 
               How device + telemetry alarms are classified and routed.
 
               **Triage tiers**
-              - **P1 (page on-call):** patient-safety alarms — pump disconnects,
+              - **P1 (page on-call):** patient-safety alarms - pump disconnects,
                 telemetry monitoring gaps.
-              - **P2 (Slack #biomed-ops):** degraded but not safety-critical —
+              - **P2 (Slack #biomed-ops):** degraded but not safety-critical -
                 low battery, elevated false-alarm rate.
               - **P3 (ticket):** informational / trending.
 
@@ -408,6 +408,6 @@ notebooks:
               | P3 | Ticket | Asset-management queue |
 
               The escalation workflow auto-classifies by tag
-              (`safety:patient-safety` → P1) and posts the device, floor, and
+              (`safety:patient-safety` -> P1) and posts the device, floor, and
               wing so responders skip the triage call.
         type: "notebook_cells"

@@ -1,11 +1,11 @@
 {
-  "title": "Ascension — Zero-Touch Resolution (Bits AI + Workflow Automation)",
-  "description": "Executive view of the incidents Datadog detected and resolved with zero human touch. Every degraded window in the AI Care Companion's RAG knowledge base is auto-detected by Bits AI, root-caused with an RCA summary, and remediated by a Workflow Automation — clamp RAG poll rate, validate, and close. Numbers here are derived from live telemetry (degraded-window counts, patient sessions, escalation counts) projected at Ascension's hospital-fleet scale. Story: humans only get paged when clinical judgment is actually needed. Everything else is handled.",
+  "title": "Ascension - Zero-Touch Resolution (Bits AI + Workflow Automation)",
+  "description": "Executive view of the incidents Datadog detects and resolves with zero human touch. When the AI Care Companion's RAG knowledge base slows down, the anomaly is auto-detected, root-caused with a Bits AI RCA summary, and remediated by Workflow Automation - clamp the slow upstream, validate recovery, close the ticket. Every tile on this board is measured from live telemetry and stays populated at all times. The dollar model is confined to the clearly-labelled projection table. Story: humans only get paged when clinical judgment is actually needed.",
   "widgets": [
     {
       "definition": {
         "type": "note",
-        "content": "# Zero-Touch Resolution — Bits AI + Workflow Automation\n**The CIO/CFO line:** When the AI Care Companion's knowledge base slows down, Datadog detects the anomaly, **Bits AI** produces the RCA + remediation plan, and a pre-approved **Workflow Automation** executes the fix — clamp the slow upstream, validate recovery, close the ticket. No nurse paged. No ops engineer interrupted. No patient sees an outage.\n\n**The numbers below are real** — every zero-touch resolution corresponds to an actual self-healing event in the live demo's 30-min degrade cycle. Projected at Ascension's fleet (~140 hospitals across ~19 states, 24/7 patient activity) the savings are material.",
+        "content": "# Zero-Touch Resolution - Bits AI + Workflow Automation\n**The CIO/CFO line:** When the AI Care Companion's knowledge base slows down, Datadog detects the anomaly, **Bits AI** produces the RCA + remediation plan, and a pre-approved **Workflow Automation** executes the fix - clamp the slow upstream, validate recovery, close the ticket. No nurse paged. No ops engineer interrupted. No patient sees an outage.\n\n**How to read this board:** all four tiles below are **measured live** - no projection factors, no hardcoded numbers. The AI Care Companion runs a 30-minute cycle and spends the last 5 minutes of it in a degraded state, so the *degraded* band appears and disappears in the chart below on a predictable rhythm. The dollar figure is a business model and lives only in the yellow table at the bottom right, with its inputs disclosed.",
         "background_color": "vivid_green",
         "font_size": "14",
         "text_align": "left",
@@ -13,145 +13,330 @@
         "show_tick": false,
         "has_padding": true
       },
-      "layout": {"x": 0, "y": 0, "width": 12, "height": 2}
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 12,
+        "height": 2
+      }
     },
-
     {
       "definition": {
-        "title": "Zero-Touch Resolutions (24h)",
+        "title": "MEASURED - AI Interactions (24h)",
         "type": "query_value",
-        "requests": [{
-          "response_format": "scalar",
-          "queries": [{"data_source": "metrics", "name": "deg", "query": "sum:care.companion.requests_total{phase:degraded}.as_count()", "aggregator": "sum"}],
-          "formulas": [{"formula": "deg * 0.85", "alias": "auto-resolved"}],
-          "conditional_formats": [
-            {"comparator": ">", "value": 30, "palette": "white_on_green"},
-            {"comparator": ">=", "value": 0, "palette": "white_on_yellow"}
-          ]
-        }],
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "req",
+                "query": "sum:care.companion.requests_total{*}.as_count()",
+                "aggregator": "sum"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "req",
+                "alias": "patient + clinician interactions"
+              }
+            ],
+            "conditional_formats": [
+              {
+                "comparator": ">",
+                "value": 0,
+                "palette": "white_on_green"
+              },
+              {
+                "comparator": "<=",
+                "value": 0,
+                "palette": "white_on_yellow"
+              }
+            ]
+          }
+        ],
         "autoscale": true,
         "precision": 0
       },
-      "layout": {"x": 0, "y": 2, "width": 3, "height": 2}
+      "layout": {
+        "x": 0,
+        "y": 2,
+        "width": 3,
+        "height": 2
+      }
     },
     {
       "definition": {
-        "title": "Mean Auto-Recovery Time (min)",
+        "title": "MEASURED - Resolved Without a Human (24h)",
         "type": "query_value",
-        "requests": [{
-          "response_format": "scalar",
-          "queries": [{"data_source": "metrics", "name": "ret", "query": "avg:care.companion.retrieval_latency_ms{phase:degraded}", "aggregator": "avg"}],
-          "formulas": [{"formula": "ret / 900 + 1.4", "alias": "minutes"}],
-          "conditional_formats": [
-            {"comparator": "<", "value": 3, "palette": "white_on_green"},
-            {"comparator": "<", "value": 5, "palette": "white_on_yellow"},
-            {"comparator": ">=", "value": 5, "palette": "white_on_red"}
-          ]
-        }],
-        "autoscale": true,
-        "precision": 1
-      },
-      "layout": {"x": 3, "y": 2, "width": 3, "height": 2}
-    },
-    {
-      "definition": {
-        "title": "Patient Sessions Protected (24h)",
-        "type": "query_value",
-        "requests": [{
-          "response_format": "scalar",
-          "queries": [{"data_source": "rum", "name": "sess", "search": {"query": "@type:session service:care-portal"}, "indexes": ["*"], "compute": {"aggregation": "count"}, "group_by": []}],
-          "formulas": [{"formula": "sess * 26", "alias": "sessions"}]
-        }],
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "req",
+                "query": "sum:care.companion.requests_total{*}.as_count()",
+                "aggregator": "sum"
+              },
+              {
+                "data_source": "metrics",
+                "name": "esc",
+                "query": "sum:care.companion.escalations_total{*}.as_count()",
+                "aggregator": "sum"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "req - esc",
+                "alias": "zero-touch"
+              }
+            ],
+            "conditional_formats": [
+              {
+                "comparator": ">",
+                "value": 0,
+                "palette": "white_on_green"
+              },
+              {
+                "comparator": "<=",
+                "value": 0,
+                "palette": "white_on_yellow"
+              }
+            ]
+          }
+        ],
         "autoscale": true,
         "precision": 0
       },
-      "layout": {"x": 6, "y": 2, "width": 3, "height": 2}
+      "layout": {
+        "x": 3,
+        "y": 2,
+        "width": 3,
+        "height": 2
+      }
     },
     {
       "definition": {
-        "title": "Estimated Savings (24h, $)",
+        "title": "MEASURED - Human Escalations (24h)",
         "type": "query_value",
-        "requests": [{
-          "response_format": "scalar",
-          "queries": [{"data_source": "metrics", "name": "deg", "query": "sum:care.companion.requests_total{phase:degraded}.as_count()", "aggregator": "sum"}],
-          "formulas": [{"formula": "deg * 0.85 * 340", "alias": "USD"}],
-          "conditional_formats": [
-            {"comparator": ">", "value": 10000, "palette": "white_on_green"},
-            {"comparator": ">=", "value": 0, "palette": "white_on_yellow"}
-          ]
-        }],
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "esc",
+                "query": "sum:care.companion.escalations_total{*}.as_count()",
+                "aggregator": "sum"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "esc",
+                "alias": "escalated to a clinician"
+              }
+            ],
+            "conditional_formats": [
+              {
+                "comparator": "<",
+                "value": 25,
+                "palette": "white_on_green"
+              },
+              {
+                "comparator": "<",
+                "value": 100,
+                "palette": "white_on_yellow"
+              },
+              {
+                "comparator": ">=",
+                "value": 100,
+                "palette": "white_on_red"
+              }
+            ]
+          }
+        ],
         "autoscale": true,
         "precision": 0
       },
-      "layout": {"x": 9, "y": 2, "width": 3, "height": 2}
+      "layout": {
+        "x": 6,
+        "y": 2,
+        "width": 3,
+        "height": 2
+      }
     },
-
+    {
+      "definition": {
+        "title": "MEASURED - RAG Retrieval Latency (avg ms)",
+        "type": "query_value",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "ret",
+                "query": "avg:care.companion.retrieval_latency_ms{*}",
+                "aggregator": "avg"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "ret",
+                "alias": "ms"
+              }
+            ],
+            "conditional_formats": [
+              {
+                "comparator": "<",
+                "value": 200,
+                "palette": "white_on_green"
+              },
+              {
+                "comparator": "<",
+                "value": 1500,
+                "palette": "white_on_yellow"
+              },
+              {
+                "comparator": ">=",
+                "value": 1500,
+                "palette": "white_on_red"
+              }
+            ]
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {
+        "x": 9,
+        "y": 2,
+        "width": 3,
+        "height": 2
+      }
+    },
     {
       "definition": {
         "type": "note",
-        "content": "## DETECT → ROOT-CAUSE → REMEDIATE → VERIFY (no human touch)",
+        "content": "## DETECT -> ROOT-CAUSE -> REMEDIATE -> VERIFY (no human touch)",
         "background_color": "vivid_blue",
         "font_size": "14",
         "text_align": "left",
         "show_tick": false,
         "has_padding": true
       },
-      "layout": {"x": 0, "y": 4, "width": 12, "height": 1}
+      "layout": {
+        "x": 0,
+        "y": 4,
+        "width": 12,
+        "height": 1
+      }
     },
-
     {
       "definition": {
-        "title": "Zero-Touch Resolutions Over Time (with patient-activity baseline)",
+        "title": "AI Interactions by Phase, with Human Escalations (measured)",
         "type": "timeseries",
         "show_legend": true,
         "requests": [
           {
             "response_format": "timeseries",
             "queries": [
-              {"data_source": "metrics", "name": "all_reqs", "query": "sum:care.companion.requests_total{*}.as_count()"}
+              {
+                "data_source": "metrics",
+                "name": "by_phase",
+                "query": "sum:care.companion.requests_total{*} by {phase}.as_count()"
+              }
             ],
             "formulas": [
-              {"formula": "all_reqs", "alias": "Total patient + clinician AI interactions"}
+              {
+                "formula": "by_phase"
+              }
             ],
-            "display_type": "line",
-            "style": {"palette": "grey", "line_type": "dashed", "line_width": "thin"}
+            "display_type": "area",
+            "style": {
+              "palette": "green"
+            }
           },
           {
             "response_format": "timeseries",
             "queries": [
-              {"data_source": "metrics", "name": "detected", "query": "sum:care.companion.requests_total{phase:degraded}.as_count()"},
-              {"data_source": "metrics", "name": "escalated", "query": "sum:care.companion.escalations_total{phase:degraded}.as_count()"}
+              {
+                "data_source": "metrics",
+                "name": "esc",
+                "query": "sum:care.companion.escalations_total{*}.as_count()"
+              }
             ],
             "formulas": [
-              {"formula": "cumsum(detected * 0.85)", "alias": "Cumulative zero-touch resolutions"},
-              {"formula": "cumsum(escalated)", "alias": "Cumulative human escalations"}
+              {
+                "formula": "esc",
+                "alias": "Human escalations"
+              }
             ],
-            "display_type": "area",
-            "style": {"palette": "green"}
+            "display_type": "line",
+            "style": {
+              "palette": "warm",
+              "line_type": "solid",
+              "line_width": "thick"
+            }
           }
         ],
-        "markers": [{"value": "y = 0", "display_type": "ok dashed", "label": "Zero impact baseline"}]
+        "markers": [
+          {
+            "value": "y = 0",
+            "display_type": "ok dashed",
+            "label": "Zero impact baseline"
+          }
+        ]
       },
-      "layout": {"x": 0, "y": 5, "width": 8, "height": 4}
+      "layout": {
+        "x": 0,
+        "y": 5,
+        "width": 8,
+        "height": 4
+      }
     },
     {
       "definition": {
-        "title": "Auto-Remediation Outcomes — by IT action",
+        "title": "Where Humans Got Involved - escalations by phase (measured)",
         "type": "toplist",
-        "requests": [{
-          "response_format": "scalar",
-          "queries": [{"data_source": "metrics", "name": "query1", "query": "sum:care.companion.requests_total{remediation:*} by {remediation}.as_count()", "aggregator": "sum"}],
-          "formulas": [{"formula": "query1 * 0.85", "limit": {"count": 5, "order": "desc"}}]
-        }],
-        "style": {"palette": "green"}
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "esc",
+                "query": "sum:care.companion.escalations_total{*} by {phase}.as_count()",
+                "aggregator": "sum"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "esc",
+                "limit": {
+                  "count": 5,
+                  "order": "desc"
+                }
+              }
+            ]
+          }
+        ],
+        "style": {
+          "palette": "green"
+        }
       },
-      "layout": {"x": 8, "y": 5, "width": 4, "height": 4}
+      "layout": {
+        "x": 8,
+        "y": 5,
+        "width": 4,
+        "height": 4
+      }
     },
-
     {
       "definition": {
         "type": "note",
-        "content": "## ZERO-TOUCH MECHANICS — what runs without a human\n\n**1. Detection (Bits AI):** Anomaly detection on `care.companion.retrieval_latency_ms` fires within ~30s of the RAG knowledge base slowing down. Bits AI auto-generates an RCA summary: *\"Retrieval p95 jumped 22× baseline → patient-facing answer latency degrading → hallucination risk climbing → cost rising.\"*\n\n**2. Triage (Bits AI):** Cross-correlates with the live APM service map. Confirms `ai-care-companion` is the affected service, not a frontend bug. Identifies the slow span as the `knowledge_base.retrieve` call. Suggests the right runbook.\n\n**3. Remediation (Workflow Automation):** Triggers the `companion-rag-poll-clamp` workflow. Clamps the RAG poll rate via the companion's `/admin/rate-limit` endpoint. Waits 60s. Validates `retrieval_latency_ms` is back under 200ms. Posts an incident note. Closes the ticket.\n\n**4. Verify (SLO + Patient RUM):** SLO error budget recovery confirmed. Patient-facing LCP back under 2.5s. No clinician was paged. No ops engineer was interrupted.",
+        "content": "## ZERO-TOUCH MECHANICS - what runs without a human\n\n**1. Detection (Bits AI):** Anomaly detection on `care.companion.retrieval_latency_ms` fires within ~30s of the RAG knowledge base slowing down. Bits AI auto-generates an RCA summary: *\"Average retrieval latency jumped well above baseline -> patient-facing answer latency degrading -> hallucination risk climbing -> cost rising.\"*\n\n**2. Triage (Bits AI):** Cross-correlates with the live APM service map. Confirms `ai-care-companion` is the affected service, not a frontend bug. Identifies the slow span as the `knowledge_base.retrieve` call. Suggests the right runbook.\n\n**3. Remediation (Workflow Automation):** The deployed **[Healthcare/Ascension] RTLS Config Pin & Sync Restart Recovery** workflow is the reference pattern: gather context -> execute the fix on the slow upstream -> wait -> verify two independent downstream signals recovered -> post to `#digital-health-ops`. In this environment the same repair is driven against the live remediation controller (`make remediate`), which clamps the upstream poll rate and lets you watch latency drain in real time.\n\n**4. Verify (SLO + Patient RUM):** SLO error budget recovery confirmed. Patient-facing LCP back under 2.5s. No clinician was paged. No ops engineer was interrupted.",
         "background_color": "white",
         "font_size": "14",
         "text_align": "left",
@@ -160,32 +345,46 @@
         "tick_edge": "top",
         "has_padding": true
       },
-      "layout": {"x": 0, "y": 9, "width": 7, "height": 5}
+      "layout": {
+        "x": 0,
+        "y": 9,
+        "width": 7,
+        "height": 5
+      }
     },
     {
       "definition": {
         "type": "note",
-        "content": "## Projected at Ascension scale\n\n| Metric | Without Datadog | With Bits AI + Workflows |\n|---|---|---|\n| MTTR (RAG-class incident) | ~42 min | **~2.3 min** |\n| Nurse interrupts / week | ~340 | **0** |\n| Ops engineer pages / week | ~28 | **~2** |\n| Avg patient sessions impacted / incident | ~310 | **~18** |\n| Resolved without human touch | 0% | **~85%** |\n| Estimated weekly ops + clinical-time savings | — | **~$58,000** |\n\n*Per-incident savings model: $340 (1 nurse-shift equivalent of distraction + 1 ops engineer's reactive hour). Modeled on Ascension's ~140-hospital national footprint and a 24/7 patient activity profile.*",
+        "content": "## Projected at Ascension scale - MODELED, not measured\n\n*Every figure in this table is a business model for discussion, not a reading from this environment. The measured inputs are the four tiles at the top.*\n\n| Metric | Without Datadog | With Bits AI + Workflows |\n|---|---|---|\n| MTTR (RAG-class incident) | ~42 min | **~2.3 min** |\n| Nurse interrupts / week | ~340 | **0** |\n| Ops engineer pages / week | ~28 | **~2** |\n| Avg patient sessions impacted / incident | ~310 | **~18** |\n| Resolved without human touch | 0% | **~85%** |\n| Estimated weekly ops + clinical-time savings | - | **~$58,000** |\n\n**Model disclosed:** $340 per incident = one nurse-shift equivalent of distraction plus one ops engineer's reactive hour. Applied to Ascension's ~140-hospital, ~19-state footprint on a 24/7 patient activity profile. Swap these inputs for Ascension's own numbers and the model recalculates - that is the intended use of this table.",
         "background_color": "vivid_yellow",
         "font_size": "14",
         "text_align": "left",
         "show_tick": false,
         "has_padding": true
       },
-      "layout": {"x": 7, "y": 9, "width": 5, "height": 5}
+      "layout": {
+        "x": 7,
+        "y": 9,
+        "width": 5,
+        "height": 5
+      }
     },
-
     {
       "definition": {
         "type": "note",
-        "content": "### Demo cue\n1. Point at **Zero-Touch Resolutions (24h)** counter, watch it tick up live.\n2. Click **[Bits AI →](https://app.datadoghq.com/bits-ai)** in side nav to show the RCA summary it generated for the most recent RAG-latency anomaly.\n3. Click **[Workflows →](https://app.datadoghq.com/workflow/list?tag=incident_domain%3Aai-care-companion)** to show the executed `companion-rag-poll-clamp` run history — every line is a zero-touch resolution.\n4. Click any line → see the steps the workflow executed (rate clamp → wait → validate → close ticket) with timestamps.\n5. Close with: *\"This is what your incident-response cost looks like once your platform is detecting + remediating itself. The nurses you have today are running care, not chasing tickets.\"*",
+        "content": "### Demo cue\n1. Point at **MEASURED - Resolved Without a Human**, then at **Human Escalations** beside it. The gap between those two tiles *is* the zero-touch story, and both numbers are live.\n2. Show the **AI Interactions by Phase** chart. The `degraded` band appears for 5 minutes in every 30, and the human-escalation line barely moves when it does. That is the whole argument in one picture.\n3. Click **[Bits AI](https://app.datadoghq.com/bits-ai)** to show the RCA summary it generated for the most recent RAG-latency anomaly.\n4. Click **[Workflows](https://app.datadoghq.com/workflow/list?tag=dd-demo-toolkit%3Atrue)** to show the deployed recovery workflow and walk its steps (gather -> fix -> wait -> verify two downstream signals -> notify).\n5. Run `make remediate` and watch **RAG Retrieval Latency** drain live - a real repair against a real endpoint, not a replay.\n6. Close with: *\"This is what your incident-response cost looks like once your platform detects and remediates itself. The nurses you have today are running care, not chasing tickets.\"*",
         "background_color": "gray",
         "font_size": "14",
         "text_align": "left",
         "show_tick": false,
         "has_padding": true
       },
-      "layout": {"x": 0, "y": 14, "width": 12, "height": 3}
+      "layout": {
+        "x": 0,
+        "y": 14,
+        "width": 12,
+        "height": 3
+      }
     }
   ],
   "layout_type": "ordered",

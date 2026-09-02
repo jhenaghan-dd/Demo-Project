@@ -745,6 +745,24 @@ definition:
 `postmortem, runbook, investigation, documentation, report, workspace, threat_hunting`.
 Any other value (e.g. `executive_report`) causes a 400 API error on create.
 
+### 8.4c Notebook `name` is capped at 80 characters
+`POST /api/v1/notebooks` rejects a longer name outright:
+
+```
+400 {"errors":["API input validation failed: {'name': ['Length must be between 0 and 80.']}"]}
+```
+
+**Emoji count as more than one character.** A leading `🛰️` is two, so a title
+that looks comfortably short can still overflow. Keep names under ~72 to leave
+headroom.
+
+This bites hardest when deriving one overlay from another — prefixing an
+existing 71-char AdventHealth notebook name with `Ascension ` pushed all three
+Ascension notebooks to 81-83 and every one of them 400'd at deploy. When you
+copy an overlay, re-measure the names.
+
+Validator: `DDN006` (error).
+
 ### 8.4 ROI section requirements (customer-facing notebooks)
 Required sub-sections:
 - **What just happened, in operations terms** — fleet size, durations

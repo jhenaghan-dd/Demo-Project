@@ -20,6 +20,10 @@ _VALID_TYPES = {
     "documentation", "report", "workspace", "threat_hunting",
 }
 
+# POST /api/v1/notebooks rejects a longer name with
+# `400 {'name': ['Length must be between 0 and 80.']}`.
+_MAX_NAME = 80
+
 
 def _load(path: Path) -> list:
     with open(path) as f:
@@ -41,6 +45,14 @@ def validate(path, env_prefix: Optional[str] = None, rel: Optional[str] = None) 
         if not isinstance(nb, dict):
             continue
         name = nb.get("name", f"notebook[{idx}]")
+
+        # §8.4c — the API caps `name` at 80 characters and 400s past it.
+        # Note emoji count as multiple characters here, so a name that
+        # *looks* short can still overflow.
+        if isinstance(nb.get("name"), str) and len(nb["name"]) > _MAX_NAME:
+            findings.append(Finding(Severity.ERROR, "DDN006", "notebook",
+                f"Notebook name is {len(nb['name'])} characters — the API rejects "
+                f"anything over {_MAX_NAME} with a 400. Shorten it.", "§8.4c", name, rel))
 
         # §8.4b — notebook type must be one of the allowed values
         ntype = nb.get("type", "investigation")

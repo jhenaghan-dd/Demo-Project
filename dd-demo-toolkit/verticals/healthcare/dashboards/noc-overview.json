@@ -219,7 +219,7 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "count:hospital.device.online{$floor,$wing,$department} by {device_category,device_type}"
+                      "query": "count:hospital.device.online{$floor,$wing,$department} by {category,device_type}"
                     }
                   ],
                   "response_format": "scalar"
@@ -248,7 +248,7 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "count:hospital.device.online{$floor,$wing,$department} by {manufacturer}"
+                      "query": "count:hospital.device.online{$floor,$wing,$department} by {device_manufacturer}"
                     }
                   ],
                   "response_format": "scalar",
@@ -736,7 +736,7 @@
           },
           {
             "definition": {
-              "title": "Application Latency (p99)",
+              "title": "Application Latency (avg by service)",
               "type": "timeseries",
               "requests": [
                 {
@@ -749,7 +749,7 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "p95:hospital.app.latency_ms{$floor} by {device_type}"
+                      "query": "avg:hospital.app.latency_ms{*} by {service_name}"
                     }
                   ],
                   "response_format": "timeseries"

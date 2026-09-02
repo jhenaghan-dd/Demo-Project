@@ -1260,7 +1260,7 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "avg:hospital.device.online{$floor,$wing} by {device_id,device_type,manufacturer}"
+                      "query": "avg:hospital.device.online{$floor,$wing} by {device_id,device_type,device_manufacturer}"
                     }
                   ],
                   "response_format": "tabular"

@@ -1,9 +1,9 @@
 notebooks:
 
   - id: "ascension-care-experience-rca"
-    name: "🛰️ Ascension Sensing Hospital — Care-Experience Cascade (Bits AI SRE Walkthrough)"
+    name: "Ascension Sensing Hospital - Care-Experience Cascade RCA"
     type: investigation
-    description: "Symptom: MedSurg patients report long waits after pressing the call button, and bedside tablets feel sluggish. Root cause: an on-prem rtls-location-service config drift makes staff-badge location data stale, so the cloud care-experience-platform can't route care-team requests to the nearest caregiver. This notebook walks the four phases the way Bits AI SRE narrows it — from the bedside symptom back to the on-prem root cause — and closes with a patient-experience ROI view."
+    description: "Symptom: MedSurg patients report long waits after pressing the call button, and bedside tablets feel sluggish. Root cause: an on-prem rtls-location-service config drift makes staff-badge location data stale, so the cloud care-experience-platform can't route care-team requests to the nearest caregiver. This notebook walks the four phases the way Bits AI SRE narrows it - from the bedside symptom back to the on-prem root cause - and closes with a patient-experience ROI view."
     time_range: "1h"
     tags:
       - "vertical:healthcare"
@@ -17,22 +17,22 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              # Ascension Sensing Hospital — Care-Experience Cascade RCA
+              # Ascension Sensing Hospital - Care-Experience Cascade RCA
 
               **Symptom report:** The MedSurg charge nurse pages: *"Patients
               are waiting too long after hitting the call button, and the
-              bedside tablets are crawling. Nothing is 'down' — it just
+              bedside tablets are crawling. Nothing is 'down'- it just
               feels broken."*
 
               **The end-user's view first.** This is not a traditional
-              infrastructure page — no host is down, no pump is offline. The
+              infrastructure page - no host is down, no pump is offline. The
               people who feel it are the **patient in the bed** and the
               **care provider** trying to reach them. Bits AI SRE closes the
               gap by walking *upstream* from the bedside symptom to the
               on-prem location service that feeds the cloud routing engine.
 
               ---
-              ## Step 1 — Confirm the symptom (the bedside)
+              ## Step 1 - Confirm the symptom (the bedside)
         type: "notebook_cells"
 
       - attributes:
@@ -96,10 +96,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 2 — Rule out the bedside devices (the obvious-but-wrong lane)
+              ## Step 2 - Rule out the bedside devices (the obvious-but-wrong lane)
 
               Is it the tablets or the room gateways themselves? Their health
-              is normal — CPU, memory, battery, signal all nominal. The
+              is normal - CPU, memory, battery, signal all nominal. The
               end-user devices are *carrying* the symptom, not *causing* it:
         type: "notebook_cells"
 
@@ -124,10 +124,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 3 — Walk upstream: care-team routing (leading indicator)
+              ## Step 3 - Walk upstream: care-team routing (leading indicator)
 
               The symptom is the bedside wait. The leading indicator is the
-              **care-team routing latency** — the cloud platform can't resolve
+              **care-team routing latency** - the cloud platform can't resolve
               the nearest caregiver fast enough. Notice it climbs *before* the
               call-ack symptom peaks:
         type: "notebook_cells"
@@ -157,12 +157,12 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 4 — The root cause: on-prem RTLS location sync
+              ## Step 4 - The root cause: on-prem RTLS location sync
 
               Why can't the cloud route? Because the **on-prem
               rtls-location-service** is feeding it stale staff-badge
               locations. RTLS sync lag is the earliest mover in the whole
-              chain — this is where Bits AI SRE lands the root cause:
+              chain - this is where Bits AI SRE lands the root cause:
         type: "notebook_cells"
 
       - attributes:
@@ -194,7 +194,7 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              And the service trace confirms the on-prem → cloud direction:
+              And the service trace confirms the on-prem -> cloud direction:
               `rtls-location-service` latency rises first, then
               `care-experience-platform` error rate follows.
         type: "notebook_cells"
@@ -227,20 +227,20 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 5 — Why this is NOT the Floor 3 East WiFi cascade
+              ## Step 5 - Why this is NOT the Floor 3 East WiFi cascade
 
               | Axis | WiFi/pump cascade | This cascade |
               |---|---|---|
               | Location | Floor 3 East | MedSurg (care_sensing fleet, all campuses) |
               | Signals | `hospital.network.*`, device signal | `hospital.sensing.*`, `hospital.cxp.*` |
               | Domain | `incident_domain:network-to-device` | `incident_domain:care-experience` |
-              | Story | AP saturation → pump disconnects | RTLS sync drift → routing → bedside |
+              | Story | AP saturation -> pump disconnects | RTLS sync drift -> routing -> bedside |
 
               Disjoint signals, locations, and incident domains let Bits AI
               SRE isolate this story without dragging in the WiFi cascade.
 
               ---
-              ## Step 6 — Remediation timeline
+              ## Step 6 - Remediation timeline
 
               Automated repair pins `rtls-location-service` to last-good config
               and restarts the sync workers. Watch RTLS lag, routing latency,
@@ -299,7 +299,7 @@ notebooks:
 
               At a nurse loaded cost of ~$70/hr and biomed/IT at ~$110/hr,
               cutting MTTR from ~60 min to ~5 min saves roughly **$95 of
-              direct labor per incident** — before counting the patient-
+              direct labor per incident** - before counting the patient-
               experience cost.
 
               **Annualized scaling (illustrative, at Ascension's footprint):**
@@ -311,17 +311,17 @@ notebooks:
               | National (140 hospitals) | ~7,000 | ~6,400 | ~$670K |
 
               **Strategic value beyond direct labor:**
-              - **HCAHPS responsiveness & quietness** — the two domains this
+              - **HCAHPS responsiveness & quietness** - the two domains this
                 cascade threatens are directly tied to reimbursement.
-              - **Sentinel-event prevention** — a slow call-button response in
+              - **Sentinel-event prevention** - a slow call-button response in
                 a fall- or sepsis-risk patient is a patient-safety event
-                ($200K–$1M each).
-              - **Nurse retention** — misrouted alerts and alarm fatigue are
-                top drivers of burnout (RN turnover $40K–$80K each).
+                ($200K-$1M each).
+              - **Nurse retention** - misrouted alerts and alarm fatigue are
+                top drivers of burnout (RN turnover $40K-$80K each).
 
               **Bottom line:** seeing the hospital the way the *patient* sees
-              it — and auto-repairing the on-prem root cause before it reaches
-              the bedside — pays for itself on the first prevented sentinel
+              it - and auto-repairing the on-prem root cause before it reaches
+              the bedside - pays for itself on the first prevented sentinel
               event, and scales across all ~140 Ascension hospitals from one
               platform.
 
@@ -334,9 +334,9 @@ notebooks:
         type: "notebook_cells"
 
   - id: "ascension-ai-care-companion-rca"
-    name: "🤖 Ascension AI Care Companion — Hallucination-Risk Incident (Bits AI Walkthrough)"
+    name: "Ascension AI Care Companion - Hallucination-Risk Incident"
     type: investigation
-    description: "Executive AI-safety RCA: the RAG knowledge base slows → the AI Care Companion answers with less grounding → hallucination risk climbs, escalations spike, patients wait. The end-to-end RUM → APM → LLM Observability story, with clinical-safety + cost evals."
+    description: "Executive AI-safety RCA: the RAG knowledge base slows -> the AI Care Companion answers with less grounding -> hallucination risk climbs, escalations spike, patients wait. The end-to-end RUM -> APM -> LLM Observability story, with clinical-safety + cost evals."
     time_range: "1h"
     tags: ["vertical:healthcare", "dd-demo-toolkit:true", "team:digital-health", "incident_domain:ai-care-companion", "audience:executive"]
     cells:
@@ -344,17 +344,17 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              # Ascension AI Care Companion — Hallucination-Risk Incident
+              # Ascension AI Care Companion - Hallucination-Risk Incident
 
               **For the room:** your AI Care Companion answers patient and
               clinician questions. It is only as trustworthy as it is *grounded*
-              and *fast*. This notebook shows — in one pane — patient experience
+              and *fast*. This notebook shows - in one pane - patient experience
               (RUM), the service path (APM), and the AI's own behavior (LLM
               Observability evals), so you catch an AI-safety problem **before a
               patient feels it**.
 
               ---
-              ## Step 1 — Root cause: the knowledge base slows down
+              ## Step 1 - Root cause: the knowledge base slows down
         type: "notebook_cells"
       - attributes:
           definition:
@@ -375,10 +375,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 2 — Leading indicator: hallucination risk climbs
+              ## Step 2 - Leading indicator: hallucination risk climbs
 
               As retrieval slows, the model answers with less grounding. The
-              **hallucination-risk eval** (LLM Observability) rises — the
+              **hallucination-risk eval** (LLM Observability) rises - the
               earliest safety signal, well before a human notices a bad answer.
         type: "notebook_cells"
       - attributes:
@@ -402,10 +402,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 3 — Patient-visible symptoms: escalations + latency
+              ## Step 3 - Patient-visible symptoms: escalations + latency
 
-              The AI does the safe thing — it escalates to a human rather than
-              guess — so **escalation rate spikes** and **patients wait longer**.
+              The AI does the safe thing - it escalates to a human rather than
+              guess - so **escalation rate spikes** and **patients wait longer**.
               Care-team load rises exactly when the AI is least able to help.
         type: "notebook_cells"
       - attributes:
@@ -442,11 +442,11 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 4 — Cost of the incident (CIO/CFO view)
+              ## Step 4 - Cost of the incident (CIO/CFO view)
 
               AI isn't free. Token volume and cost-per-interaction are tracked
               per scenario, so you can see the spend behind the AI care
-              experience — and that a degraded model often costs *more* (longer
+              experience - and that a degraded model often costs *more* (longer
               prompts, retries) while delivering *less*.
         type: "notebook_cells"
       - attributes:
@@ -469,18 +469,18 @@ notebooks:
               ## Why this needs Datadog
 
               Without this, you learn the AI is unsafe when a **patient or
-              clinician reports a bad answer** — after the fact. Here, the
+              clinician reports a bad answer** - after the fact. Here, the
               **LLM Observability hallucination eval** fires within minutes,
-              the **linked RUM → APM → LLM trace** shows the slow knowledge-base
+              the **linked RUM -> APM -> LLM trace** shows the slow knowledge-base
               call as the cause, and the **monitors** page the on-call before
               patient safety, care-team load, or trust take a hit. One platform:
-              patient experience, AI quality, infrastructure, and cost — together.
+              patient experience, AI quality, infrastructure, and cost - together.
         type: "notebook_cells"
 
   - id: "ascension-agentic-ai-story"
-    name: "🤖 Ascension Agentic AI — Monitoring the Care Companion End-to-End (CTO Walkthrough)"
+    name: "Ascension Agentic AI - Care Companion End-to-End (CTO View)"
     type: investigation
-    description: "The executive story of Ascension's agentic AI Care Companion: how Datadog monitors a multi-step agent (plan → tools → RAG → generate → self-critique) for quality, safety, and cost — detects a live quality regression before patients feel it, blocks unsafe requests with guardrails, compares model providers with experiments, and routes risky answers to human review via annotation queues. Closes with ROI at Ascension scale."
+    description: "The executive story of Ascension's agentic AI Care Companion: how Datadog monitors a multi-step agent (plan -> tools -> RAG -> generate -> self-critique) for quality, safety, and cost - detects a live quality regression before patients feel it, blocks unsafe requests with guardrails, compares model providers with experiments, and routes risky answers to human review via annotation queues. Closes with ROI at Ascension scale."
     time_range: "1h"
     tags: ["vertical:healthcare", "dd-demo-toolkit:true", "team:digital-health", "incident_domain:ai-care-companion", "audience:executive"]
     cells:
@@ -489,9 +489,9 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              # Ascension Agentic AI — Monitoring the Care Companion End-to-End
+              # Ascension Agentic AI - Monitoring the Care Companion End-to-End
 
-              **The pitch:** Ascension's AI Care Companion isn't a single prompt —
+              **The pitch:** Ascension's AI Care Companion isn't a single prompt -
               it's an **agent**. For each patient or clinician request it *plans*,
               calls *tools* (multi-campus EMR, RTLS bed status, prior-auth),
               *retrieves* Ascension care guidance (RAG), *generates* a grounded
@@ -499,16 +499,16 @@ notebooks:
               specialist sub-agent. An AI you can't see is an AI you can't trust.
 
               This notebook shows how Datadog **LLM Observability** makes every
-              step visible and measurable — quality, safety, and cost — so an
+              step visible and measurable - quality, safety, and cost - so an
               AI-safety problem is caught **before a patient feels it**.
 
-              Companion dashboard: **Ascension — Agentic AI Command Center**.
+              Companion dashboard: **Ascension - Agentic AI Command Center**.
 
               ---
-              ## Step 1 — See the agent work (agentic execution)
+              ## Step 1 - See the agent work (agentic execution)
 
               Volume of agent interactions across clinical scenarios. Each one is
-              a full multi-step **agent trace** — open the
+              a full multi-step **agent trace** - open the
               **[agent graph](https://app.datadoghq.com/llm/traces?query=%40ml_app%3Aascension-care-companion)**
               and expand a `multi_campus_transfer` to watch it fan a bed search
               across campuses and hand off to the transfer-coordinator sub-agent.
@@ -533,10 +533,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 2 — Every answer is scored (quality + safety evals)
+              ## Step 2 - Every answer is scored (quality + safety evals)
 
               Datadog evaluates each response for **groundedness** (is it backed
-              by Ascension guidance?) and **hallucination risk** — automatically,
+              by Ascension guidance?) and **hallucination risk** - automatically,
               on every interaction. This is AI *correctness*, not just uptime.
         type: "notebook_cells"
       - attributes:
@@ -571,10 +571,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 3 — Catch the regression before patients do
+              ## Step 3 - Catch the regression before patients do
 
               Every ~30 minutes the RAG knowledge base slows down. Watch the
-              **root cause** (retrieval latency) spike — and the patient-visible
+              **root cause** (retrieval latency) spike - and the patient-visible
               symptom (escalation rate) climb right behind it as the model, less
               sure of its grounding, defers more cases to humans. Datadog detects
               this within minutes and pages the on-call.
@@ -591,7 +591,7 @@ notebooks:
                     query: "avg:care.companion.retrieval_latency_ms{*}"
                 formulas:
                   - formula: "rag"
-                    alias: "RAG retrieval latency (ms) — root cause"
+                    alias: "RAG retrieval latency (ms) - root cause"
                 display_type: "line"
             markers:
               - value: "y = 800"
@@ -625,12 +625,12 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 4 — Guardrails: the AI refuses the unsafe ask
+              ## Step 4 - Guardrails: the AI refuses the unsafe ask
 
               Some requests must never be answered. When a patient asks for
               controlled-substance dosing (Ascension policy ECP-19.4), or an
               attacker tries a prompt-injection to exfiltrate other patients'
-              records, the **safety guardrail blocks and escalates** — and the
+              records, the **safety guardrail blocks and escalates** - and the
               block is a first-class, audited **error trace** in LLM Observability
               (`GuardrailBlocked`). Filter the traces to
               `scenario:controlled_substance_dosing` or `scenario:prompt_injection`
@@ -641,22 +641,22 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 5 — Choose the model with data (experiments)
+              ## Step 5 - Choose the model with data (experiments)
 
               The same clinical eval set runs across **8 model providers**
               (OpenAI, Anthropic, Google, Mistral, Meta, Cohere) as Datadog
               **[Experiments](https://app.datadoghq.com/llm/experiments)**, scored
               on groundedness, must-mention recall, citation recall, and
               escalation correctness. Use the **Tradeoff** view to pick the model
-              that clears the clinical-safety bar at the lowest cost — evidence,
+              that clears the clinical-safety bar at the lowest cost - evidence,
               not vendor claims.
 
               ---
-              ## Step 6 — Keep humans in the loop (annotation queues)
+              ## Step 6 - Keep humans in the loop (annotation queues)
 
               Risky or low-confidence answers flow into **[annotation
-              queues](https://app.datadoghq.com/llm/annotations)** — Quality
-              Review, Safety Review, Evaluator Calibration — where clinicians
+              queues](https://app.datadoghq.com/llm/annotations)** - Quality
+              Review, Safety Review, Evaluator Calibration - where clinicians
               apply pass/fail and category labels. Those human verdicts become
               the next dataset (to fine-tune) and the ground truth that keeps the
               automated evaluators honest.
@@ -669,7 +669,7 @@ notebooks:
               ## ROI / Business Impact
 
               **What just happened, in operations terms.** Across Ascension's AI
-              Care Companion — patient + clinician interactions, 24/7, fleet-wide —
+              Care Companion - patient + clinician interactions, 24/7, fleet-wide -
               a knowledge-base slowdown pushed hallucination risk up and grounding
               down for ~5 minutes each cycle. Automated detection + fallback keeps
               a bad answer from ever reaching a patient.
@@ -678,7 +678,7 @@ notebooks:
 
               | | Without LLM Obs | With Datadog |
               |---|---|---|
-              | Time to detect an AI-safety regression | after a reported bad answer (hours–days) | ~minutes (auto) |
+              | Time to detect an AI-safety regression | after a reported bad answer (hours-days) | ~minutes (auto) |
               | Time to root cause | manual, cross-team (~45 min) | one linked trace (~3 min) |
               | Bad answers reaching patients / incident | dozens | near-zero (fallback + escalate) |
               | Model selection | vendor claims | experiment-backed |
@@ -692,16 +692,16 @@ notebooks:
               | National (140 hospitals) | ~170M | ~16,800 | ~$1.8M |
 
               **Strategic value beyond direct labor:**
-              - **Patient-safety events avoided** — a hallucinated clinical answer
-                is a sentinel-event risk ($200K–$1M each).
-              - **AI cost control** — provider experiments routinely cut
-                token/inference spend 30–60% at equal quality.
-              - **Trust & adoption** — clinicians use an AI they can see is
+              - **Patient-safety events avoided** - a hallucinated clinical answer
+                is a sentinel-event risk ($200K-$1M each).
+              - **AI cost control** - provider experiments routinely cut
+                token/inference spend 30-60% at equal quality.
+              - **Trust & adoption** - clinicians use an AI they can see is
                 grounded and audited; that's what gets it out of pilot.
-              - **Compliance** — every unsafe request is blocked and audited.
+              - **Compliance** - every unsafe request is blocked and audited.
 
               **Bottom line:** monitoring the AI the way you monitor everything
-              else — quality, safety, and cost on one platform — is what makes an
+              else - quality, safety, and cost on one platform - is what makes an
               agentic Care Companion safe enough to scale across all ~140
               Ascension hospitals.
 

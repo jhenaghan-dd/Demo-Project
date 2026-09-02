@@ -1,11 +1,11 @@
 {
-  "title": "BD Pyxis MedStation — Connected Fleet",
+  "title": "BD Pyxis MedStation - Connected Fleet",
   "description": "Pyxis MedStation ES live IoT telemetry: cabinet health, drawer/cubie mechanics, dispensing workflow, BD Pharmogistics inventory sync, controlled-substance compliance, and the pyxis-inventory-api / pharmacy-ehr-bridge cascade view used for BitsSRE root-cause walks.",
   "widgets": [
     {
       "definition": {
         "type": "note",
-        "content": "# BD Pyxis MedStation ES — Live Fleet\n**Manufacturer:** Becton Dickinson · **Model:** MedStation ES · **Firmware:** 1.6.6\n\nAll metrics filter on `device_type:pyxis_medstation` and `device_manufacturer:BD`. Use the template variables to scope by floor / wing / department.",
+        "content": "# BD Pyxis MedStation ES - Live Fleet\n**Manufacturer:** Becton Dickinson - **Model:** MedStation ES - **Firmware:** 1.6.6\n\nAll metrics filter on `device_type:pyxis_medstation` and `device_manufacturer:BD`. Use the template variables to scope by floor / wing / department.",
         "background_color": "vivid_blue",
         "font_size": "14",
         "text_align": "left",
@@ -80,7 +80,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Inventory Sync — root-cause lane for the BD cascade",
+        "content": "## Inventory Sync - root-cause lane for the BD cascade",
         "background_color": "yellow",
         "font_size": "14",
         "text_align": "left",
@@ -100,7 +100,7 @@
     },
     {
       "definition": {
-        "title": "Sync Lag → pyxis-inventory-api (ms)",
+        "title": "Sync Lag -> pyxis-inventory-api (ms)",
         "type": "timeseries",
         "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:hospital.pyxis.sync_lag_to_inventory_ms{device_type:pyxis_medstation,$floor,$wing,$department} by {device_id}"}], "response_format": "timeseries", "display_type": "line"}],
         "markers": [{"value": "y = 4000", "display_type": "error dashed", "label": "Cascade threshold"}]
@@ -128,7 +128,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Dispensing Workflow — nurse-visible symptom lane",
+        "content": "## Dispensing Workflow - nurse-visible symptom lane",
         "background_color": "vivid_orange",
         "font_size": "14",
         "text_align": "left",
@@ -285,7 +285,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Cascade trace — pyxis-inventory-api ⇄ pharmacy-ehr-bridge\nFor the BitsSRE walkthrough: Pyxis polling storm saturates pyxis-inventory-api, which then chokes pharmacy-ehr-bridge, then pharmacy-dispensing-api, then nurse-visible dispense delays.",
+        "content": "## Cascade trace - pyxis-inventory-api <-> pharmacy-ehr-bridge\nFor the BitsSRE walkthrough: Pyxis polling storm saturates pyxis-inventory-api, which then chokes pharmacy-ehr-bridge, then pharmacy-dispensing-api, then nurse-visible dispense delays.",
         "background_color": "vivid_purple",
         "font_size": "14",
         "text_align": "left",
@@ -305,7 +305,7 @@
     },
     {
       "definition": {
-        "title": "pharmacy-ehr-bridge Latency (ms) — avg & max",
+        "title": "pharmacy-ehr-bridge Latency (ms) - avg & max",
         "type": "timeseries",
         "requests": [{"formulas": [{"formula": "avg"}, {"formula": "max", "alias": "max"}], "queries": [{"data_source": "metrics", "name": "avg", "query": "avg:hospital.app.latency_ms{service_name:pharmacy-ehr-bridge}"}, {"data_source": "metrics", "name": "max", "query": "max:hospital.app.latency_ms{service_name:pharmacy-ehr-bridge}"}], "response_format": "timeseries", "display_type": "line"}],
         "markers": [{"value": "y = 1500", "display_type": "error dashed", "label": "Choke threshold"}]
@@ -314,7 +314,7 @@
     },
     {
       "definition": {
-        "title": "pharmacy-dispensing-api Latency (ms) — avg & max",
+        "title": "pharmacy-dispensing-api Latency (ms) - avg & max",
         "type": "timeseries",
         "requests": [{"formulas": [{"formula": "avg"}, {"formula": "max", "alias": "max"}], "queries": [{"data_source": "metrics", "name": "avg", "query": "avg:hospital.app.latency_ms{service_name:pharmacy-dispensing-api}"}, {"data_source": "metrics", "name": "max", "query": "max:hospital.app.latency_ms{service_name:pharmacy-dispensing-api}"}], "response_format": "timeseries", "display_type": "line"}]
       },
@@ -370,7 +370,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## BD Wider Connected Fleet — BACTEC FX, Rowa Vmax, Phoenix M50, Veritor Plus",
+        "content": "## BD Wider Connected Fleet - BACTEC FX, Rowa Vmax, Phoenix M50, Veritor Plus",
         "background_color": "vivid_blue",
         "font_size": "14",
         "text_align": "left",
@@ -381,7 +381,7 @@
     },
     {
       "definition": {
-        "title": "BACTEC Incubator Temp (°C)",
+        "title": "BACTEC Incubator Temp (C)",
         "type": "timeseries",
         "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:hospital.bactec.incubator_temp_celsius{device_type:bactec_blood_culture} by {device_id}"}], "response_format": "timeseries", "display_type": "line"}],
         "yaxis": {"min": "33", "max": "38"},
@@ -431,7 +431,7 @@
     },
     {
       "definition": {
-        "title": "Veritor Cartridge Temp (°C)",
+        "title": "Veritor Cartridge Temp (C)",
         "type": "timeseries",
         "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:hospital.veritor.cartridge_temp_celsius{device_type:veritor_diagnostic} by {device_id}"}], "response_format": "timeseries", "display_type": "line"}]
       },

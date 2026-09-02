@@ -182,7 +182,7 @@
         ],
         "autoscale": true,
         "precision": 0,
-        "custom_unit": " alerts"
+        "custom_unit": "alerts"
       },
       "layout": {
         "x": 0,
@@ -1137,7 +1137,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.device.cpu_usage_pct{category:network_infra,$service} by {service_name}"
+                "query": "avg:hospital.device.cpu_usage_pct{category:network_infra} by {device_id}"
               }
             ],
             "response_format": "timeseries",
@@ -1171,7 +1171,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.device.memory_usage_pct{category:network_infra,$service} by {service_name}"
+                "query": "avg:hospital.device.memory_usage_pct{category:network_infra} by {device_id}"
               }
             ],
             "response_format": "timeseries",
@@ -1205,7 +1205,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.network.connected_clients{$service} by {service_name}"
+                "query": "avg:hospital.network.connected_clients{$floor,$wing} by {floor}"
               }
             ],
             "response_format": "timeseries",

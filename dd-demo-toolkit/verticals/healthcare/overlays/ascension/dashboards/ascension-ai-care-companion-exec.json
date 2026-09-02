@@ -1,11 +1,11 @@
 {
-  "title": "Ascension — AI Care Companion: Patient Experience & AI Safety",
-  "description": "Executive view of the patient-facing AI Care Companion. One pane combining (a) real-user telemetry from the care-portal via RUM, (b) AI safety signals — hallucination risk, groundedness, clinical escalation — and (c) AI cost + performance. Designed to answer three questions in 30 seconds: Are patients having a good experience? Is the AI safe? What is it costing us? Every 30 minutes the service self-degrades for ~5 minutes — that window is visible as a spike in RAG retrieval latency, a climb in hallucination risk, a rise in escalation rate, and a drop in groundedness, all at the same time.",
+  "title": "Ascension - AI Care Companion: Patient Experience & AI Safety",
+  "description": "Executive view of the patient-facing AI Care Companion. One pane combining (a) real-user telemetry from the care-portal via RUM, (b) AI safety signals - hallucination risk, groundedness, clinical escalation - and (c) AI cost + performance. Designed to answer three questions in 30 seconds: Are patients having a good experience? Is the AI safe? What is it costing us? Every 30 minutes the service self-degrades for ~5 minutes - that window is visible as a spike in RAG retrieval latency, a climb in hallucination risk, a rise in escalation rate, and a drop in groundedness, all at the same time.",
   "widgets": [
     {
       "definition": {
         "type": "note",
-        "content": "# Ascension — AI Care Companion\n**The patient-facing AI, end-to-end, on one page.** Real users on care-portal (RUM, top) → backend AI service (APM, middle) → LLM Observability (clinical safety + cost, throughout). Watch the **AI SAFETY** band — when the RAG knowledge base slows down, hallucination risk climbs, groundedness drops, and the model escalates more patient cases to human nurses. That cascade is the demo's centerpiece.",
+        "content": "# Ascension - AI Care Companion\n**The patient-facing AI, end-to-end, on one page.** Real users on care-portal (RUM, top) -> backend AI service (APM, middle) -> LLM Observability (clinical safety + cost, throughout). Watch the **AI SAFETY** band - when the RAG knowledge base slows down, hallucination risk climbs, groundedness drops, and the model escalates more patient cases to human nurses. That cascade is the demo's centerpiece.",
         "background_color": "vivid_blue",
         "font_size": "14",
         "text_align": "left",
@@ -65,7 +65,7 @@
     },
     {
       "definition": {
-        "title": "AI Cost — Last 1h ($)",
+        "title": "AI Cost - Last 1h ($)",
         "type": "query_value",
         "requests": [{
           "response_format": "scalar",
@@ -81,7 +81,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## PATIENT EXPERIENCE — care-portal (RUM)",
+        "content": "## PATIENT EXPERIENCE - care-portal (RUM)",
         "background_color": "blue",
         "font_size": "14",
         "text_align": "left",
@@ -122,7 +122,7 @@
     },
     {
       "definition": {
-        "title": "Page Load — Largest Contentful Paint (LCP, ms)",
+        "title": "Page Load - Largest Contentful Paint (LCP, ms)",
         "type": "timeseries",
         "show_legend": true,
         "requests": [{
@@ -140,7 +140,7 @@
     },
     {
       "definition": {
-        "title": "Interaction Responsiveness — INP (ms)",
+        "title": "Interaction Responsiveness - INP (ms)",
         "type": "timeseries",
         "show_legend": true,
         "requests": [{
@@ -160,7 +160,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## AI SAFETY & QUALITY — clinical correctness, not just availability",
+        "content": "## AI SAFETY & QUALITY - clinical correctness, not just availability",
         "background_color": "vivid_purple",
         "font_size": "14",
         "text_align": "left",
@@ -190,7 +190,7 @@
     },
     {
       "definition": {
-        "title": "Groundedness — answer supported by knowledge base (1 = fully grounded)",
+        "title": "Groundedness - answer supported by knowledge base (1 = fully grounded)",
         "type": "timeseries",
         "show_legend": true,
         "requests": [{
@@ -209,7 +209,7 @@
     },
     {
       "definition": {
-        "title": "Clinical Escalation Rate — % of patient questions routed to a human nurse",
+        "title": "Clinical Escalation Rate - % of patient questions routed to a human nurse",
         "type": "timeseries",
         "show_legend": false,
         "requests": [{
@@ -243,7 +243,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## AI COST & PERFORMANCE — RAG knowledge base is the root cause when it degrades",
+        "content": "## AI COST & PERFORMANCE - RAG knowledge base is the root cause when it degrades",
         "background_color": "vivid_yellow",
         "font_size": "14",
         "text_align": "left",
@@ -320,7 +320,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## LIVE AI ACTIVITY — what the AI is doing right now",
+        "content": "## LIVE AI ACTIVITY - what the AI is doing right now",
         "background_color": "vivid_green",
         "font_size": "14",
         "text_align": "left",
@@ -374,7 +374,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "### Deep-link to the live data\n- **[LLM Observability — every prompt, retrieval, and response](https://app.datadoghq.com/llm/traces?query=%40ml_app%3Aai-care-companion)** — click any span for prompt, response, RAG documents, and inline safety evals.\n- **[RUM — patient sessions on care-portal](https://app.datadoghq.com/rum/sessions?query=%40service%3Acare-portal)** — replay an actual patient interaction frame-by-frame.\n- **[APM — ai-care-companion service](https://app.datadoghq.com/apm/services/ai-care-companion)** — backend traces correlated to the patient session above.\n\n**Demo cue:** during a degraded window, click the RAG latency spike on the Root-Cause chart → \"View related traces\" → land on the slow KB call → \"View related LLM Obs span\" → see the actual prompt + hallucinated answer the model gave a real patient.",
+        "content": "### Deep-link to the live data\n- **[LLM Observability - every prompt, retrieval, and response](https://app.datadoghq.com/llm/traces?query=%40ml_app%3Aai-care-companion)** - click any span for prompt, response, RAG documents, and inline safety evals.\n- **[RUM - patient sessions on care-portal](https://app.datadoghq.com/rum/sessions?query=%40service%3Acare-portal)** - replay an actual patient interaction frame-by-frame.\n- **[APM - ai-care-companion service](https://app.datadoghq.com/apm/services/ai-care-companion)** - backend traces correlated to the patient session above.\n\n**Demo cue:** during a degraded window, click the RAG latency spike on the Root-Cause chart -> \"View related traces\"-> land on the slow KB call -> \"View related LLM Obs span\"-> see the actual prompt + hallucinated answer the model gave a real patient.",
         "background_color": "white",
         "font_size": "14",
         "text_align": "left",

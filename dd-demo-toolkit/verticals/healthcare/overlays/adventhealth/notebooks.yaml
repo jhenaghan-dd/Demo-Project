@@ -1,9 +1,9 @@
 notebooks:
 
   - id: "adventhealth-care-experience-rca"
-    name: "🛰️ AdventHealth Sensing Hospital — Care-Experience Cascade (Bits AI SRE Walkthrough)"
+    name: "AdventHealth Sensing Hospital - Care-Experience Cascade RCA"
     type: investigation
-    description: "Symptom: MedSurg patients report long waits after pressing the call button, and bedside tablets feel sluggish. Root cause: an on-prem rtls-location-service config drift makes staff-badge location data stale, so the cloud care-experience-platform can't route care-team requests to the nearest caregiver. This notebook walks the four phases the way Bits AI SRE narrows it — from the bedside symptom back to the on-prem root cause — and closes with a patient-experience ROI view."
+    description: "Symptom: MedSurg patients report long waits after pressing the call button, and bedside tablets feel sluggish. Root cause: an on-prem rtls-location-service config drift makes staff-badge location data stale, so the cloud care-experience-platform can't route care-team requests to the nearest caregiver. This notebook walks the four phases the way Bits AI SRE narrows it - from the bedside symptom back to the on-prem root cause - and closes with a patient-experience ROI view."
     time_range: "1h"
     tags:
       - "vertical:healthcare"
@@ -17,22 +17,22 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              # AdventHealth Sensing Hospital — Care-Experience Cascade RCA
+              # AdventHealth Sensing Hospital - Care-Experience Cascade RCA
 
               **Symptom report:** The MedSurg charge nurse pages: *"Patients
               are waiting too long after hitting the call button, and the
-              bedside tablets are crawling. Nothing is 'down' — it just
+              bedside tablets are crawling. Nothing is 'down'- it just
               feels broken."*
 
               **The end-user's view first.** This is not a traditional
-              infrastructure page — no host is down, no pump is offline. The
+              infrastructure page - no host is down, no pump is offline. The
               people who feel it are the **patient in the bed** and the
               **care provider** trying to reach them. Bits AI SRE closes the
               gap by walking *upstream* from the bedside symptom to the
               on-prem location service that feeds the cloud routing engine.
 
               ---
-              ## Step 1 — Confirm the symptom (the bedside)
+              ## Step 1 - Confirm the symptom (the bedside)
         type: "notebook_cells"
 
       - attributes:
@@ -96,10 +96,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 2 — Rule out the bedside devices (the obvious-but-wrong lane)
+              ## Step 2 - Rule out the bedside devices (the obvious-but-wrong lane)
 
               Is it the tablets or the room gateways themselves? Their health
-              is normal — CPU, memory, battery, signal all nominal. The
+              is normal - CPU, memory, battery, signal all nominal. The
               end-user devices are *carrying* the symptom, not *causing* it:
         type: "notebook_cells"
 
@@ -124,10 +124,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 3 — Walk upstream: care-team routing (leading indicator)
+              ## Step 3 - Walk upstream: care-team routing (leading indicator)
 
               The symptom is the bedside wait. The leading indicator is the
-              **care-team routing latency** — the cloud platform can't resolve
+              **care-team routing latency** - the cloud platform can't resolve
               the nearest caregiver fast enough. Notice it climbs *before* the
               call-ack symptom peaks:
         type: "notebook_cells"
@@ -157,12 +157,12 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 4 — The root cause: on-prem RTLS location sync
+              ## Step 4 - The root cause: on-prem RTLS location sync
 
               Why can't the cloud route? Because the **on-prem
               rtls-location-service** is feeding it stale staff-badge
               locations. RTLS sync lag is the earliest mover in the whole
-              chain — this is where Bits AI SRE lands the root cause:
+              chain - this is where Bits AI SRE lands the root cause:
         type: "notebook_cells"
 
       - attributes:
@@ -194,7 +194,7 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              And the service trace confirms the on-prem → cloud direction:
+              And the service trace confirms the on-prem -> cloud direction:
               `rtls-location-service` latency rises first, then
               `care-experience-platform` error rate follows.
         type: "notebook_cells"
@@ -227,20 +227,20 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 5 — Why this is NOT the Floor 3 East WiFi cascade
+              ## Step 5 - Why this is NOT the Floor 3 East WiFi cascade
 
               | Axis | WiFi/pump cascade | This cascade |
               |---|---|---|
               | Location | Floor 3 East | MedSurg (care_sensing fleet) |
               | Signals | `hospital.network.*`, device signal | `hospital.sensing.*`, `hospital.cxp.*` |
               | Domain | `incident_domain:network-to-device` | `incident_domain:care-experience` |
-              | Story | AP saturation → pump disconnects | RTLS sync drift → routing → bedside |
+              | Story | AP saturation -> pump disconnects | RTLS sync drift -> routing -> bedside |
 
               Disjoint signals, locations, and incident domains let Bits AI
               SRE isolate this story without dragging in the WiFi cascade.
 
               ---
-              ## Step 6 — Remediation timeline
+              ## Step 6 - Remediation timeline
 
               Automated repair pins `rtls-location-service` to last-good config
               and restarts the sync workers. Watch RTLS lag, routing latency,
@@ -298,7 +298,7 @@ notebooks:
 
               At a nurse loaded cost of ~$70/hr and biomed/IT at ~$110/hr,
               cutting MTTR from ~60 min to ~5 min saves roughly **$95 of
-              direct labor per incident** — before counting the patient-
+              direct labor per incident** - before counting the patient-
               experience cost.
 
               **Annualized scaling (illustrative):**
@@ -310,17 +310,17 @@ notebooks:
               | National (90 hospitals) | ~4,500 | ~4,100 | ~$430K |
 
               **Strategic value beyond direct labor:**
-              - **HCAHPS responsiveness & quietness** — the two domains this
+              - **HCAHPS responsiveness & quietness** - the two domains this
                 cascade threatens are directly tied to reimbursement.
-              - **Sentinel-event prevention** — a slow call-button response in
+              - **Sentinel-event prevention** - a slow call-button response in
                 a fall- or sepsis-risk patient is a patient-safety event
-                ($200K–$1M each).
-              - **Nurse retention** — misrouted alerts and alarm fatigue are
-                top drivers of burnout (RN turnover $40K–$80K each).
+                ($200K-$1M each).
+              - **Nurse retention** - misrouted alerts and alarm fatigue are
+                top drivers of burnout (RN turnover $40K-$80K each).
 
               **Bottom line:** seeing the hospital the way the *patient* sees
-              it — and auto-repairing the on-prem root cause before it reaches
-              the bedside — pays for itself on the first prevented sentinel
+              it - and auto-repairing the on-prem root cause before it reaches
+              the bedside - pays for itself on the first prevented sentinel
               event.
 
               ---
@@ -332,9 +332,9 @@ notebooks:
         type: "notebook_cells"
 
   - id: "adventhealth-ai-care-companion-rca"
-    name: "🤖 AI Care Companion — Hallucination-Risk Incident (Bits AI Walkthrough)"
+    name: "AI Care Companion - Hallucination-Risk Incident (Bits AI Walkthrough)"
     type: investigation
-    description: "Executive AI-safety RCA: the RAG knowledge base slows → the AI Care Companion answers with less grounding → hallucination risk climbs, escalations spike, patients wait. The end-to-end RUM → APM → LLM Observability story, with clinical-safety + cost evals."
+    description: "Executive AI-safety RCA: the RAG knowledge base slows -> the AI Care Companion answers with less grounding -> hallucination risk climbs, escalations spike, patients wait. The end-to-end RUM -> APM -> LLM Observability story, with clinical-safety + cost evals."
     time_range: "1h"
     tags: ["vertical:healthcare", "dd-demo-toolkit:true", "team:digital-health", "incident_domain:ai-care-companion", "audience:executive"]
     cells:
@@ -342,17 +342,17 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              # AI Care Companion — Hallucination-Risk Incident
+              # AI Care Companion - Hallucination-Risk Incident
 
               **For the room:** your AI Care Companion answers patient and
               clinician questions. It is only as trustworthy as it is *grounded*
-              and *fast*. This notebook shows — in one pane — patient experience
+              and *fast*. This notebook shows - in one pane - patient experience
               (RUM), the service path (APM), and the AI's own behavior (LLM
               Observability evals), so you catch an AI-safety problem **before a
               patient feels it**.
 
               ---
-              ## Step 1 — Root cause: the knowledge base slows down
+              ## Step 1 - Root cause: the knowledge base slows down
         type: "notebook_cells"
       - attributes:
           definition:
@@ -373,10 +373,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 2 — Leading indicator: hallucination risk climbs
+              ## Step 2 - Leading indicator: hallucination risk climbs
 
               As retrieval slows, the model answers with less grounding. The
-              **hallucination-risk eval** (LLM Observability) rises — the
+              **hallucination-risk eval** (LLM Observability) rises - the
               earliest safety signal, well before a human notices a bad answer.
         type: "notebook_cells"
       - attributes:
@@ -400,10 +400,10 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 3 — Patient-visible symptoms: escalations + latency
+              ## Step 3 - Patient-visible symptoms: escalations + latency
 
-              The AI does the safe thing — it escalates to a human rather than
-              guess — so **escalation rate spikes** and **patients wait longer**.
+              The AI does the safe thing - it escalates to a human rather than
+              guess - so **escalation rate spikes** and **patients wait longer**.
               Care-team load rises exactly when the AI is least able to help.
         type: "notebook_cells"
       - attributes:
@@ -440,11 +440,11 @@ notebooks:
             type: "markdown"
             text: |
               ---
-              ## Step 4 — Cost of the incident (CIO/CFO view)
+              ## Step 4 - Cost of the incident (CIO/CFO view)
 
               AI isn't free. Token volume and cost-per-interaction are tracked
               per scenario, so you can see the spend behind the AI care
-              experience — and that a degraded model often costs *more* (longer
+              experience - and that a degraded model often costs *more* (longer
               prompts, retries) while delivering *less*.
         type: "notebook_cells"
       - attributes:
@@ -467,10 +467,10 @@ notebooks:
               ## Why this needs Datadog
 
               Without this, you learn the AI is unsafe when a **patient or
-              clinician reports a bad answer** — after the fact. Here, the
+              clinician reports a bad answer** - after the fact. Here, the
               **LLM Observability hallucination eval** fires within minutes,
-              the **linked RUM → APM → LLM trace** shows the slow knowledge-base
+              the **linked RUM -> APM -> LLM trace** shows the slow knowledge-base
               call as the cause, and the **monitors** page the on-call before
               patient safety, care-team load, or trust take a hit. One platform:
-              patient experience, AI quality, infrastructure, and cost — together.
+              patient experience, AI quality, infrastructure, and cost - together.
         type: "notebook_cells"

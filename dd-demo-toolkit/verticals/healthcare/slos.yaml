@@ -15,8 +15,8 @@ slos:
     target: 99.5
     timeframe: "30d"
     query:
-      numerator: "sum:hospital.device.online{device_category:medical_iot}.as_count()"
-      denominator: "sum:hospital.device.heartbeats_total{device_category:medical_iot}.as_count()"
+      numerator: "sum:hospital.device.online{category:medical_iot}.as_count()"
+      denominator: "sum:hospital.device.heartbeats_total{category:medical_iot}.as_count()"
     tags: ["vertical:healthcare", "dd-demo-toolkit:true", "team:biomed"]
 
   - name: "Nurse Call Response Time SLA (Urgent <120s)"

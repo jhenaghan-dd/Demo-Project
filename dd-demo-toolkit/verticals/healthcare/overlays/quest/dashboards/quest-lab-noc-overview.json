@@ -1,12 +1,12 @@
 {
-  "title": "Quest Diagnostics — Lab NOC Overview",
-  "description": "Single pane for Quest Diagnostics lab operations: TAT SLO health, HL7 outbound result delivery, LIMS back-pressure, specimen pipeline (pre-analytic → analytic → refrigerated storage), and provider-facing portal health. The cascade-detection layout walks left-to-right: customer-facing TAT → delivery layer (HL7 engine) → LIMS → lab production → specimen logistics. All metrics filter on the Quest overlay's device types and the `vertical:healthcare` tag.",
+  "title": "Quest Diagnostics - Lab NOC Overview",
+  "description": "Single pane for Quest Diagnostics lab operations: TAT SLO health, HL7 outbound result delivery, LIMS back-pressure, specimen pipeline (pre-analytic -> analytic -> refrigerated storage), and provider-facing portal health. The cascade-detection layout walks left-to-right: customer-facing TAT -> delivery layer (HL7 engine) -> LIMS -> lab production -> specimen logistics. All metrics filter on the Quest overlay's device types and the `vertical:healthcare` tag.",
   "widgets": [
 
     {
       "definition": {
         "type": "note",
-        "content": "# Quest Diagnostics — Lab Operations NOC\nLab informatics + integration + operations single-pane view. Reads left-to-right: **customer-facing TAT → delivery layer → LIMS → lab production**. Cascade signal lights up the whole row when an HL7 / LIMS / specimen issue propagates.",
+        "content": "# Quest Diagnostics - Lab Operations NOC\nLab informatics + integration + operations single-pane view. Reads left-to-right: **customer-facing TAT -> delivery layer -> LIMS -> lab production**. Cascade signal lights up the whole row when an HL7 / LIMS / specimen issue propagates.",
         "background_color": "vivid_blue",
         "font_size": "14",
         "text_align": "left",
@@ -81,7 +81,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Delivery layer — HL7 integration engine (cascade root)",
+        "content": "## Delivery layer - HL7 integration engine (cascade root)",
         "background_color": "yellow",
         "font_size": "14",
         "text_align": "left",
@@ -189,7 +189,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Specimen pipeline — pre-analytic → analytic → refrigerated",
+        "content": "## Specimen pipeline - pre-analytic -> analytic -> refrigerated",
         "background_color": "vivid_purple",
         "font_size": "14",
         "text_align": "left",
@@ -258,7 +258,7 @@
     },
     {
       "definition": {
-        "title": "TAT Breach Accumulation — STAT vs Routine",
+        "title": "TAT Breach Accumulation - STAT vs Routine",
         "type": "timeseries",
         "requests": [
           {"formulas": [{"formula": "stat"}, {"formula": "routine"}], "queries": [
@@ -284,7 +284,7 @@
     },
     {
       "definition": {
-        "title": "Provider Results Portal — Error Rate %",
+        "title": "Provider Results Portal - Error Rate %",
         "type": "timeseries",
         "requests": [
           {"formulas": [{"formula": "errs / reqs * 100", "alias": "error %"}], "queries": [
@@ -298,7 +298,7 @@
     },
     {
       "definition": {
-        "title": "Provider Results Portal — Latency (avg + max)",
+        "title": "Provider Results Portal - Latency (avg + max)",
         "type": "timeseries",
         "requests": [
           {"formulas": [{"formula": "avg"}, {"formula": "mx"}], "queries": [

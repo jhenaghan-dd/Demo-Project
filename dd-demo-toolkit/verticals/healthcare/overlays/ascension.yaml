@@ -32,7 +32,7 @@
 # Tagging — strictly the existing healthcare standards, no new identity KEYS:
 #   - device_type:<value>           same values as the AdventHealth overlay
 #   - device_manufacturer:Ascension (engine-emitted; identifies this overlay)
-#   - device_category:care_sensing  (existing `category` key, existing value)
+#   - category:care_sensing  (existing `category` key, existing value)
 #   - department:MedSurg            (existing department dimension value)
 #   - incident_domain:care-experience (existing key + value)
 #   - campus:<ascension-hospital>   NEW location dimension (see locations

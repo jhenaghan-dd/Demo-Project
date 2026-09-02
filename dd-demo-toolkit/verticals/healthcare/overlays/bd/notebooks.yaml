@@ -1,9 +1,9 @@
 notebooks:
 
   - id: "bd-pyxis-cascade-rca"
-    name: "💊 BD Pyxis Inventory-Sync Cascade — Bits AI SRE Walkthrough"
+    name: "BD Pyxis Inventory-Sync Cascade - Bits AI SRE Walkthrough"
     type: investigation
-    description: "Symptom: nurses report Pyxis dispensing delays in Pharmacy on Floor 1 South. Root cause: vendor-pushed firmware bumped Pyxis inventory polling rate, saturating pyxis-inventory-api → pharmacy-ehr-bridge thread pool → upstream of nurse-visible dispense latency. This notebook walks through the four phases the way Bits AI SRE narrows it down, and closes with a quantified ROI view."
+    description: "Symptom: nurses report Pyxis dispensing delays in Pharmacy on Floor 1 South. Root cause: vendor-pushed firmware bumped Pyxis inventory polling rate, saturating pyxis-inventory-api -> pharmacy-ehr-bridge thread pool -> upstream of nurse-visible dispense latency. This notebook walks through the four phases the way Bits AI SRE narrows it down, and closes with a quantified ROI view."
     time_range: "1h"
     tags:
       - "vertical:healthcare"
@@ -17,7 +17,7 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              # BD Pyxis MedStation — Inventory-Sync Cascade RCA
+              # BD Pyxis MedStation - Inventory-Sync Cascade RCA
 
               **Symptom report:** Pharmacy ops desk pages: *"Nurses on 1S
               are seeing 3-second waits at the Pyxis cabinet. Some dispenses
@@ -29,7 +29,7 @@ notebooks:
               closes by walking *upstream* of the dispense workflow.
 
               ---
-              ## Step 1 — Confirm the symptom
+              ## Step 1 - Confirm the symptom
         type: "notebook_cells"
 
       - attributes:
@@ -68,10 +68,10 @@ notebooks:
               are fine, ruling out a global EHR or HL7 broker problem.
 
               ---
-              ## Step 2 — Cabinet-level health (the obvious-but-wrong lane)
+              ## Step 2 - Cabinet-level health (the obvious-but-wrong lane)
 
               On-cabinet health is normal. CPU, memory, signal strength,
-              drawer mechanics — none of these explain the latency:
+              drawer mechanics - none of these explain the latency:
         type: "notebook_cells"
 
       - attributes:
@@ -107,15 +107,15 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              ✅ Cabinet itself is healthy. **The cabinet is the messenger,
+              Cabinet itself is healthy. **The cabinet is the messenger,
               not the cause.**
 
               ---
-              ## Step 3 — Walk upstream: BD Pharmogistics inventory sync
+              ## Step 3 - Walk upstream: BD Pharmogistics inventory sync
 
               Bits AI SRE prompts: *"What changed before the dispense
               latency started rising?"*  The answer is two metrics
-              upstream — both **leading indicators** of the cascade.
+              upstream - both **leading indicators** of the cascade.
         type: "notebook_cells"
 
       - attributes:
@@ -172,7 +172,7 @@ notebooks:
               coincidental.
 
               ---
-              ## Step 4 — Confirm the upstream service is choking
+              ## Step 4 - Confirm the upstream service is choking
 
               If the polling storm is real, `pyxis-inventory-api` should
               show error/latency spikes, and its downstream
@@ -230,11 +230,11 @@ notebooks:
             type: "markdown"
             text: |
               Both confirmed.  Service-map view shows:
-              **Pyxis cabinet → pyxis-inventory-api → pharmacy-ehr-bridge → hl7-fhir-broker**
+              **Pyxis cabinet -> pyxis-inventory-api -> pharmacy-ehr-bridge -> hl7-fhir-broker**
               with errors compounding at the second hop.
 
               ---
-              ## Step 5 — Why it's NOT the WiFi cascade
+              ## Step 5 - Why it's NOT the WiFi cascade
 
               The Floor 3 East WiFi/pump cascade (`incident_domain:network-to-device`)
               is a different story.  Quick disambiguation:
@@ -250,13 +250,13 @@ notebooks:
               | Root-cause metric                                | `hospital.network.channel_utilization_pct` | `hospital.pyxis.inventory_poll_rate_per_min` |
 
               The two stories are *spatially* (different floor + wing +
-              department), *temporally* (offset by ≥50 ticks at startup),
+              department), *temporally* (offset by >=50 ticks at startup),
               and *namespace* (zero metric overlap) disjoint.  Bits AI SRE
               filtering by `incident_domain:pharmacy-automation` will not
               pull WiFi-cascade signals into the chain.
 
               ---
-              ## Step 6 — Remediation
+              ## Step 6 - Remediation
 
               The self-heal workflow `bd-pyxis-rate-limit-recovery`
               throttles the Pyxis polling rate via the pyxis-inventory-api
@@ -293,45 +293,45 @@ notebooks:
           definition:
             type: "markdown"
             text: |
-              Once polling is back at ≤60/min, sync lag drains within 90s
+              Once polling is back at <=60/min, sync lag drains within 90s
               and dispense latency (avg + max) returns to baseline.
 
               ---
-              # 💰 Business Impact & ROI
+              # Business Impact & ROI
 
               The cascade above looks technical, but every second of
               degradation translates into measurable nurse, patient, and
               compliance costs. This is why automation + observability
-              isn't a "nice to have" line item — it pays for itself on
+              isn't a "nice to have"line item - it pays for itself on
               the first preventable incident.
 
               ## What just happened, in operations terms
 
               - **Affected fleet:** 18 Pyxis MedStation cabinets across
                 Pharmacy and satellite locations
-              - **Cascade duration if undetected:** typically 60–90 minutes
+              - **Cascade duration if undetected:** typically 60-90 minutes
                 of MTTR through manual triage (vendor finger-pointing
                 between BD, pharmacy software, and network teams)
               - **Cascade duration with Datadog auto-remediation workflow:**
-                **<5 minutes** end-to-end (detect → root-cause → throttle →
-                verify recovery → notify)
+                **<5 minutes** end-to-end (detect -> root-cause -> throttle ->
+                verify recovery -> notify)
 
-              ## ROI math — single incident
+              ## ROI math - single incident
 
               | Lever                              | Manual MTTR (status quo)            | Automated (Datadog + Bits AI SRE) |
               |-----------------------------------|--------------------------------------|------------------------------------|
-              | Time to detect                     | 8–15 min (nurse complaint → ops)    | < 60 sec (poll-rate monitor)       |
-              | Time to root-cause                 | 30–60 min (cross-team triage)       | < 90 sec (Bits AI SRE causal walk) |
+              | Time to detect                     | 8-15 min (nurse complaint -> ops)    | < 60 sec (poll-rate monitor)       |
+              | Time to root-cause                 | 30-60 min (cross-team triage)       | < 90 sec (Bits AI SRE causal walk) |
               | Time to remediate                  | 30+ min (vendor call, manual change)| < 2 min (workflow rate-limit API)  |
-              | **Total MTTR**                     | **60–90 min**                        | **< 5 min**                        |
-              | Dispense workflow delays           | ~540 dispenses/hr × 1.5h × 2.5s ≈ **34 nurse-minutes** | ~540 dispenses/hr × 0.08h × 2.5s ≈ **2 nurse-minutes** |
-              | Med-administration delays         | 80–120 doses delayed 2–5 min        | < 10 doses delayed                 |
+              | **Total MTTR**                     | **60-90 min**                        | **< 5 min**                        |
+              | Dispense workflow delays           | ~540 dispenses/hr x 1.5h x 2.5s ~ **34 nurse-minutes** | ~540 dispenses/hr x 0.08h x 2.5s ~ **2 nurse-minutes** |
+              | Med-administration delays         | 80-120 doses delayed 2-5 min        | < 10 doses delayed                 |
               | Compliance audit exposure          | Full incident logged; manual RCA needed | Auto-RCA notebook + workflow log captured |
 
               **Direct labor savings per incident** (loaded nurse cost
               ~$70/hr, loaded biomed/IT cost ~$110/hr):
-              - Nurse time: 32 min × $70/hr ≈ **$37**
-              - Biomed/IT triage: 90 min × $110/hr ≈ **$165**
+              - Nurse time: 32 min x $70/hr ~ **$37**
+              - Biomed/IT triage: 90 min x $110/hr ~ **$165**
               - **Per-incident savings: ~$200 direct, before downstream
                 impact**
 
@@ -343,21 +343,21 @@ notebooks:
 
               | Scope                          | Annual MTTR hours saved | Annual nurse-hours preserved | Direct cost avoided |
               |--------------------------------|-------------------------|-------------------------------|---------------------|
-              | Single 500-bed hospital        | 12 × 1.5 = **18 hrs**   | ~10 hrs (workflow drag)       | ~$2,400             |
+              | Single 500-bed hospital        | 12 x 1.5 = **18 hrs**   | ~10 hrs (workflow drag)       | ~$2,400             |
               | 10-hospital regional system    | 180 hrs                 | 100 hrs                       | $24,000             |
               | 100-hospital national system   | 1,800 hrs               | 1,000 hrs                     | $240,000            |
 
               **And this is for ONE incident pattern.** A mature program
               automates dozens of patterns (WiFi cascades, FHIR broker
               backpressure, EHR queue saturation, Rowa robot drift,
-              BACTEC LIS lag…), and the savings compound.
+              BACTEC LIS lag...), and the savings compound.
 
               ## What's not on the spreadsheet (the bigger numbers)
 
               **Sentinel-event prevention.** A single missed STAT
               medication for a coding ICU patient can become a
               joint-commission sentinel event. Average sentinel-event cost
-              to a U.S. hospital: **$200K–$1M+ per incident** (legal,
+              to a U.S. hospital: **$200K-$1M+ per incident** (legal,
               regulatory, reputational, settlement). Avoiding **one** of
               these per year through faster Pyxis recovery covers the
               entire Datadog spend.
@@ -370,11 +370,11 @@ notebooks:
               hospital's DEA registration.
 
               **Nurse retention / HCAHPS.** Nurse turnover costs
-              $40K–$80K per RN. Workflow friction (waiting at the
+              $40K-$80K per RN. Workflow friction (waiting at the
               cabinet, override paperwork, manual recounts) is the
               #2 cited reason for bedside-RN burnout in BD's own
               surveys. Removing 30+ min of daily cabinet friction per
-              nurse moves HCAHPS "responsiveness of staff" scores —
+              nurse moves HCAHPS "responsiveness of staff"scores -
               which feed Medicare reimbursement.
 
               **Vendor leverage.** When the BD account team has
@@ -401,7 +401,7 @@ notebooks:
                  on `hospital.pyxis.inventory_poll_rate_per_min`.
               3. Capacity-plan `pyxis-inventory-api` thread-pool sizing
                  against worst-case poll burst from full Pyxis fleet.
-              4. Bring this notebook to the next BD vendor QBR — turn
-                 a "Pyxis is unreliable" anecdote into a quantified
+              4. Bring this notebook to the next BD vendor QBR - turn
+                 a "Pyxis is unreliable"anecdote into a quantified
                  product-reliability conversation.
         type: "notebook_cells"

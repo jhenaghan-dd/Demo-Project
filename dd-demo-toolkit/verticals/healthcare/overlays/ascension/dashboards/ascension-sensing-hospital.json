@@ -1,11 +1,11 @@
 {
-  "title": "Ascension — Sensing Hospital: Patient Experience",
-  "description": "Ascension sensing-hospital live telemetry from the patient and care-provider perspective: RTLS room sensing, care-team routing, nurse-call acknowledgement, perceived responsiveness, bedside engagement tablets (EuD), and room comfort — across the Ascension hospital fleet (use the $campus template variable to scope to one hospital). Includes the on-prem rtls-location-service → cloud care-experience-platform cascade view used for Bits AI SRE root-cause walks. No staffing data — service quality only.",
+  "title": "Ascension - Sensing Hospital: Patient Experience",
+  "description": "Ascension sensing-hospital live telemetry from the patient and care-provider perspective: RTLS room sensing, care-team routing, nurse-call acknowledgement, perceived responsiveness, bedside engagement tablets (EuD), and room comfort - across the Ascension hospital fleet (use the $campus template variable to scope to one hospital). Includes the on-prem rtls-location-service -> cloud care-experience-platform cascade view used for Bits AI SRE root-cause walks. No staffing data - service quality only.",
   "widgets": [
     {
       "definition": {
         "type": "note",
-        "content": "# Ascension Sensing Hospital — Patient Experience (MedSurg)\n**The view the patient and the care provider actually feel.** Every MedSurg room is instrumented with a CareSense RTLS gateway, a bedside engagement tablet (EuD), and an ambient comfort sensor, across the Ascension hospital fleet.\n\nRoot cause flows **on-prem `rtls-location-service` → cloud `care-experience-platform` → the bedside**. Use the template variables to scope by campus / floor / wing / department.",
+        "content": "# Ascension Sensing Hospital - Patient Experience (MedSurg)\n**The view the patient and the care provider actually feel.** Every MedSurg room is instrumented with a CareSense RTLS gateway, a bedside engagement tablet (EuD), and an ambient comfort sensor, across the Ascension hospital fleet.\n\nRoot cause flows **on-prem `rtls-location-service` -> cloud `care-experience-platform` -> the bedside**. Use the template variables to scope by campus / floor / wing / department.",
         "background_color": "vivid_blue",
         "font_size": "14",
         "text_align": "left",
@@ -80,7 +80,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## RTLS Location Sensing — root-cause lane (on-prem)",
+        "content": "## RTLS Location Sensing - root-cause lane (on-prem)",
         "background_color": "yellow",
         "font_size": "14",
         "text_align": "left",
@@ -113,7 +113,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Care-Team Routing — leading indicator (cloud)",
+        "content": "## Care-Team Routing - leading indicator (cloud)",
         "background_color": "vivid_orange",
         "font_size": "14",
         "text_align": "left",
@@ -145,7 +145,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Patient Experience — symptom lane (the bedside)",
+        "content": "## Patient Experience - symptom lane (the bedside)",
         "background_color": "vivid_orange",
         "font_size": "14",
         "text_align": "left",
@@ -176,7 +176,7 @@
     },
     {
       "definition": {
-        "title": "Bedside Engagement Tablet Latency — EuD (per device, ms)",
+        "title": "Bedside Engagement Tablet Latency - EuD (per device, ms)",
         "type": "timeseries",
         "show_legend": true,
         "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:hospital.cxp.bedside_app_latency_ms{device_type:bedside_engagement_tablet,$campus,$floor,$wing,$department} by {device_id}"}], "response_format": "timeseries", "display_type": "line"}],
@@ -197,7 +197,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Service Cascade — on-prem RTLS → cloud Care Experience Platform",
+        "content": "## Service Cascade - on-prem RTLS -> cloud Care Experience Platform",
         "background_color": "vivid_purple",
         "font_size": "14",
         "text_align": "left",
@@ -269,7 +269,7 @@
     },
     {
       "definition": {
-        "title": "Room Temperature (°C)",
+        "title": "Room Temperature (C)",
         "type": "timeseries",
         "show_legend": true,
         "requests": [{"formulas": [{"formula": "query1"}], "queries": [{"data_source": "metrics", "name": "query1", "query": "avg:hospital.cxp.room_temp_celsius{device_type:ambient_comfort_sensor,$campus,$floor,$wing,$department} by {device_id}"}], "response_format": "timeseries", "display_type": "line"}],
@@ -300,7 +300,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Across the Ascension Hospital Fleet — multi-campus telemetry range\nThe sensing fleet spans ~15 Ascension hospitals. These views break the room-sensing signals out **by campus** so you can spot a single hospital drifting from the rest, or scope the whole board to one hospital with the `$campus` template variable.",
+        "content": "## Across the Ascension Hospital Fleet - multi-campus telemetry range\nThe sensing fleet spans ~15 Ascension hospitals. These views break the room-sensing signals out **by campus** so you can spot a single hospital drifting from the rest, or scope the whole board to one hospital with the `$campus` template variable.",
         "background_color": "vivid_blue",
         "font_size": "14",
         "text_align": "left",

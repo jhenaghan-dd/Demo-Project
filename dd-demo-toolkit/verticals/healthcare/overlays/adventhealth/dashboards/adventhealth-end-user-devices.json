@@ -1,11 +1,11 @@
 {
-  "title": "AdventHealth — End-User Devices (EuD): Patient & Clinician",
-  "description": "AdventHealth end-user-device experience for the patient-facing bedside engagement tablet and the care-provider clinician mobile: app launch, crashes/hangs, on-device network RTT, session health, and round-trip latency to the cloud care-experience-platform. During the care-experience cascade these signals degrade as a downstream symptom — Bits AI SRE detects the patient-experience anomaly and isolates it to the on-prem RTLS root cause via the disjoint hospital.sensing.* signals. Built for AdventHealth; no staffing data.",
+  "title": "AdventHealth - End-User Devices (EuD): Patient & Clinician",
+  "description": "AdventHealth end-user-device experience for the patient-facing bedside engagement tablet and the care-provider clinician mobile: app launch, crashes/hangs, on-device network RTT, session health, and round-trip latency to the cloud care-experience-platform. During the care-experience cascade these signals degrade as a downstream symptom - Bits AI SRE detects the patient-experience anomaly and isolates it to the on-prem RTLS root cause via the disjoint hospital.sensing.* signals. Built for AdventHealth; no staffing data.",
   "widgets": [
     {
       "definition": {
         "type": "note",
-        "content": "# End-User Devices (EuD) — the device in the hand\n**Patient** holds the *bedside engagement tablet*; the **care provider** carries the *clinician mobile*. This view is the experience of the devices themselves — launch, crashes, on-device network, session health.\n\n**Bits AI detection:** because the care-experience cascade lives in disjoint signals (`hospital.sensing.*` / `hospital.cxp.*` / `hospital.eud.*`, `incident_domain:care-experience`, MedSurg), Bits AI SRE can flag the EuD degradation and trace it upstream to the on-prem `rtls-location-service` without pulling in the Floor 3 East WiFi cascade.",
+        "content": "# End-User Devices (EuD) - the device in the hand\n**Patient** holds the *bedside engagement tablet*; the **care provider** carries the *clinician mobile*. This view is the experience of the devices themselves - launch, crashes, on-device network, session health.\n\n**Bits AI detection:** because the care-experience cascade lives in disjoint signals (`hospital.sensing.*` / `hospital.cxp.*` / `hospital.eud.*`, `incident_domain:care-experience`, MedSurg), Bits AI SRE can flag the EuD degradation and trace it upstream to the on-prem `rtls-location-service` without pulling in the Floor 3 East WiFi cascade.",
         "background_color": "vivid_blue",
         "font_size": "14",
         "text_align": "left",

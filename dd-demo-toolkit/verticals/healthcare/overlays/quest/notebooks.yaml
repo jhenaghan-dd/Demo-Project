@@ -1,9 +1,9 @@
 notebooks:
 
   - id: "quest-lab-integration-cascade-rca"
-    name: "🧪 Quest Diagnostics — HL7 Engine Config Cascade RCA"
+    name: "Quest Diagnostics - HL7 Engine Config Cascade RCA"
     type: investigation
-    description: "Symptom: ordering providers report stale results in the portal; STAT TAT SLO is burning fast. Root cause: a bad routing-rule config push to the HL7 integration engine NACKs valid ORU^R01 messages, saturates worker threads, and grows the outbound queue past 10k. Back-pressure surfaces in LIMS (results pending, db pool, HL7 write failures) → pre-analytic specimen queues grow → refrigerated storage approaches capacity → contracted TAT commitments breach. This notebook walks the cascade the way Bits AI SRE narrows it down, EXPLAINS WHERE EACH METRIC ACTUALLY COMES FROM (so the customer can answer 'how would we get this into Datadog?'), disambiguates from the WiFi and BD cascades, and closes with quantified ROI."
+    description: "Symptom: ordering providers report stale results in the portal; STAT TAT SLO is burning fast. Root cause: a bad routing-rule config push to the HL7 integration engine NACKs valid ORU^R01 messages, saturates worker threads, and grows the outbound queue past 10k. Back-pressure surfaces in LIMS (results pending, db pool, HL7 write failures) -> pre-analytic specimen queues grow -> refrigerated storage approaches capacity -> contracted TAT commitments breach. This notebook walks the cascade the way Bits AI SRE narrows it down, EXPLAINS WHERE EACH METRIC ACTUALLY COMES FROM (so the customer can answer 'how would we get this into Datadog?'), disambiguates from the WiFi and BD cascades, and closes with quantified ROI."
     time_range: "1h"
     tags:
       - "vertical:healthcare"
@@ -14,13 +14,13 @@ notebooks:
     cells:
 
       # =====================================================
-      # PROLOGUE — symptom + data-sourcing model
+      # PROLOGUE - symptom + data-sourcing model
       # =====================================================
       - attributes:
           definition:
             type: "markdown"
             text: |
-              # Quest Diagnostics — HL7 Integration Engine Config Cascade
+              # Quest Diagnostics - HL7 Integration Engine Config Cascade
 
               ## Symptom report
 
@@ -30,16 +30,16 @@ notebooks:
               > placed STAT orders this morning, the specimens arrived at
               > your lab, but our EHR is still showing the orders as
               > pending. The provider portal is also showing some results
-              > as stale.' STAT TAT SLO has burned 18% of its 30-day
+              > as stale.'STAT TAT SLO has burned 18% of its 30-day
               > budget in the last hour."*
 
               ## Where to look first?
 
-              The intuitive answer: "the lab is slow." The lab is **not**
+              The intuitive answer: "the lab is slow."The lab is **not**
               slow. Chemistry analyzers, hematology, and PCR are running
               at normal throughput. Specimens are being collected and
               accessioned. **Results are being verified inside LIMS on
-              schedule.** What is happening is one layer further out —
+              schedule.** What is happening is one layer further out -
               the system that *delivers* results to ordering providers
               has stopped functioning correctly. This notebook walks
               upstream of the symptom to find the actual fault and
@@ -47,19 +47,19 @@ notebooks:
               two minutes.
 
               ---
-              ## ⚠️ How to read this notebook — the data-sourcing map
+              ## How to read this notebook - the data-sourcing map
 
               Before chasing graphs, anchor on **where each metric below
               actually originates** in a real Quest environment, and on
               the **effort level** to get it into Datadog. This is the
-              answer to "how would we get this data into Datadog?" that
+              answer to "how would we get this data into Datadog?"that
               every customer asks within the first 10 minutes of a demo.
               If you cannot answer it on the whiteboard, the rest of the
               conversation falls apart.
 
               Metrics fall into three tiers by instrumentation effort:
 
-              ### Tier 1 — Native (auto-collected)
+              ### Tier 1 - Native (auto-collected)
               The Datadog Agent or APM tracer surfaces these out of the
               box once installed on the host. No application code change.
 
@@ -69,7 +69,7 @@ notebooks:
               | `hospital.hl7.nack_received_total`              | HL7 engine native counter (ACK code = AE/AR in the MSA segment). |
               | `hospital.hl7.messages_sent_total`              | HL7 engine native counter, per route.                        |
               | `hospital.hl7.messages_delivered_total`         | HL7 engine native counter, per route.                        |
-              | `hospital.hl7.outbound_queue_depth`             | HL7 engine native gauge — first-class metric on every major engine. |
+              | `hospital.hl7.outbound_queue_depth`             | HL7 engine native gauge - first-class metric on every major engine. |
               | `hospital.hl7.worker_thread_utilization_pct`   | JVM/.NET thread-pool stats via JMX or APM runtime metrics.   |
               | `hospital.hl7.routing_errors_total`             | HL7 engine native error counter.                             |
               | `hospital.lims.db_pool_active`                  | APM runtime metric (DB connection pool).                     |
@@ -77,9 +77,9 @@ notebooks:
               | `hospital.device.cpu_usage_pct`, `.memory_usage_pct`, `.online` | Datadog Agent on the host (LIMS / HL7 engine / portal servers). |
               | `hospital.specimen.refrigerator_temp_celsius`, `.refrigerated_capacity_pct`, `.stability_*`, `.door_open_events_total` | Cold-chain IoT (Sensitech / Berlinger / Cooper-Atkins). CAP + CDC mandate this; real devices ship native telemetry today. Direct OTel push or Agent integration. |
 
-              ### Tier 2 — Custom business metric (DogStatsD from app code)
+              ### Tier 2 - Custom business metric (DogStatsD from app code)
               These require ~10 lines of code added at well-defined hook
-              points in the application — standard pattern in every shop
+              points in the application - standard pattern in every shop
               that does observability seriously. They live in LIMS (the
               system of record) or in the integration engine's transform
               scripts.
@@ -88,43 +88,43 @@ notebooks:
               |-------------------------------------------------|--------------------------------------------------------------|
               | `hospital.lims.orders_received_total`           | LIMS order-ingest endpoint (counter on every accepted order).|
               | `hospital.lims.results_verified_total`          | LIMS result-verification path (counter on every verify).     |
-              | `hospital.lims.results_pending_delivery`        | LIMS sweeper job (gauge — `SELECT count(*) FROM results WHERE status='verified' AND hl7_sent_at IS NULL`). |
+              | `hospital.lims.results_pending_delivery`        | LIMS sweeper job (gauge - `SELECT count(*) FROM results WHERE status='verified'AND hl7_sent_at IS NULL`). |
               | `hospital.lims.hl7_writes_failed_total`         | LIMS HL7-write catch-block (counter on exception).           |
               | `hospital.lims.qc_evaluations_total`            | LIMS QC service-call wrapper (counter per evaluation).       |
-              | `hospital.tat.routine_orders_completed_total` / `.stat_orders_completed_total` | LIMS at verify-time — counter on every completed order, partitioned by priority. |
-              | `hospital.tat.routine_orders_within_target_total` / `.stat_orders_within_target_total` | LIMS at verify-time — counter when `verified_time − accession_time` ≤ contracted TAT. |
-              | `hospital.tat.routine_breaches_total` / `.stat_breaches_total` | LIMS at verify-time — counter when the threshold is missed. Numerator + denominator pairs make SLOs count-over-count (no percentiles needed). |
+              | `hospital.tat.routine_orders_completed_total` / `.stat_orders_completed_total` | LIMS at verify-time - counter on every completed order, partitioned by priority. |
+              | `hospital.tat.routine_orders_within_target_total` / `.stat_orders_within_target_total` | LIMS at verify-time - counter when `verified_time - accession_time` <= contracted TAT. |
+              | `hospital.tat.routine_breaches_total` / `.stat_breaches_total` | LIMS at verify-time - counter when the threshold is missed. Numerator + denominator pairs make SLOs count-over-count (no percentiles needed). |
               | `hospital.tat.stat_in_flight_count` / `.routine_in_flight_count` | LIMS sweeper job (gauge of currently-pending orders).       |
-              | `hospital.specimen.queue_depth_pre_analytic`, `.queue_depth_analytic` | Pre-analytic automation line (Inpeco / Roche CCM / Beckman) — vendor REST or PLC SCADA scrape via custom Agent check. Modern lines support it; older standalone centrifuges don't. |
+              | `hospital.specimen.queue_depth_pre_analytic`, `.queue_depth_analytic` | Pre-analytic automation line (Inpeco / Roche CCM / Beckman) - vendor REST or PLC SCADA scrape via custom Agent check. Modern lines support it; older standalone centrifuges don't. |
               | `hospital.specimen.processed_total`, `.sorter_misroutes_total`, `.stability_breaches_total` | Automation line counters via same vendor REST/SCADA scrape. |
 
-              ### Tier 3 — Wired-from-pipeline (deliberate plumbing)
+              ### Tier 3 - Wired-from-pipeline (deliberate plumbing)
               Not native, not as simple as a single DogStatsD increment.
               These need a deploy-pipeline hook, an admin-API scrape, or
               a custom check polling vendor middleware.
 
               | Metric                                          | Implementation                                               |
               |-------------------------------------------------|--------------------------------------------------------------|
-              | `hospital.hl7.config_version`                   | Emitted by the **CD pipeline** (Jenkins / Spinnaker / Argo) on every promotion of the HL7 routing config. Datadog [Change Tracking](https://docs.datadoghq.com/change_tracking/) auto-correlates against downstream metrics for 15 min post-deploy — this is what makes the smoking-gun "config-version step → routing errors" pattern light up automatically. |
+              | `hospital.hl7.config_version`                   | Emitted by the **CD pipeline** (Jenkins / Spinnaker / Argo) on every promotion of the HL7 routing config. Datadog [Change Tracking](https://docs.datadoghq.com/change_tracking/) auto-correlates against downstream metrics for 15 min post-deploy - this is what makes the smoking-gun "config-version step -> routing errors"pattern light up automatically. |
               | `hospital.hl7.worker_thread_retries_total`      | Engine-dependent. Rhapsody: JMX `RetryCount` bean. Mirth: needs custom logging + log-based metric. |
-              | `hospital.analyzer.tests_completed_total`, `.qc_pass_total`, `.qc_fail_total`, `.test_requeue_rate_pct` | **Source of truth is LIMS**, not the analyzer. Analyzers are vendor-locked appliances; their state reaches Datadog via instrument middleware (Data Innovations IM / Roche cobas IT / Abbott AlinIQ) → LIMS. LIMS then emits these counters tagged with the originating `analyzer_id` so dashboards can group by instrument while the metric origin stays consistent. |
-              | `hospital.analyzer.calibration_age_hr`, `.reagent_lot_age_days`, `.reagent_inventory_pct` | Periodic poll (every 5–15 min) of vendor middleware admin API or DB → custom Agent check. Quest already runs this kind of integration for compliance / inventory reporting. |
-              | `hospital.analyzer.module_status_ok`            | Same path as above — instrument middleware exposes per-module health via API. |
-              | `hospital.courier.in_transit_specimens`, `.pickups_completed_total`, `.pickup_delays_total`, `.route_progress_pct` | Courier dispatch SaaS (MercuryGate / Onfleet / in-house) — webhook-driven or 1-min poll → DogStatsD on the dispatch service. Driver-app RUM optional add-on. |
+              | `hospital.analyzer.tests_completed_total`, `.qc_pass_total`, `.qc_fail_total`, `.test_requeue_rate_pct` | **Source of truth is LIMS**, not the analyzer. Analyzers are vendor-locked appliances; their state reaches Datadog via instrument middleware (Data Innovations IM / Roche cobas IT / Abbott AlinIQ) -> LIMS. LIMS then emits these counters tagged with the originating `analyzer_id` so dashboards can group by instrument while the metric origin stays consistent. |
+              | `hospital.analyzer.calibration_age_hr`, `.reagent_lot_age_days`, `.reagent_inventory_pct` | Periodic poll (every 5-15 min) of vendor middleware admin API or DB -> custom Agent check. Quest already runs this kind of integration for compliance / inventory reporting. |
+              | `hospital.analyzer.module_status_ok`            | Same path as above - instrument middleware exposes per-module health via API. |
+              | `hospital.courier.in_transit_specimens`, `.pickups_completed_total`, `.pickup_delays_total`, `.route_progress_pct` | Courier dispatch SaaS (MercuryGate / Onfleet / in-house) - webhook-driven or 1-min poll -> DogStatsD on the dispatch service. Driver-app RUM optional add-on. |
 
               **The headline:** every metric in this notebook comes from
               **software Quest owns and operates**, in one of these three
               tiers. The lab instruments themselves (cobas, Architect,
               Sysmex, PCR boxes) are vendor-locked appliances that do not
-              natively emit Prom/OTel — but their state reaches Datadog
+              natively emit Prom/OTel - but their state reaches Datadog
               *via the middleware Quest already runs in front of them*,
               the same way every other large reference lab does it. No
-              "magic IoT" required: it is the same APM + DogStatsD +
+              "magic IoT"required: it is the same APM + DogStatsD +
               cold-chain-IoT + middleware-scrape mix Quest is already
               running today, just wired into Datadog.
 
               ---
-              ## Step 1 — Confirm the symptom
+              ## Step 1 - Confirm the symptom
 
               STAT TAT breach counters are the customer-facing punch
               line. They originate in LIMS at result-verification time
@@ -159,10 +159,10 @@ notebooks:
             text: |
               STAT and routine TAT breach counters both ticked up.
               The symptom is real and the customers are not imagining
-              it. Now — **which subsystem caused this?**
+              it. Now - **which subsystem caused this?**
 
               ---
-              ## Step 2 — Are we lab-slow, or delivery-slow?
+              ## Step 2 - Are we lab-slow, or delivery-slow?
 
               Two questions to disambiguate fast. If the **lab** is
               slow, we will see it in analyzer throughput and pre-analytic
@@ -198,11 +198,11 @@ notebooks:
             text: |
               **Analyzers are fine. LIMS verification is fine.** Throughput
               is on baseline. So the *production* side of the lab is
-              healthy. The fault is downstream — in the **delivery** path
+              healthy. The fault is downstream - in the **delivery** path
               from LIMS to ordering providers.
 
               ---
-              ## Step 3 — Walk to the delivery path: HL7 outbound queue
+              ## Step 3 - Walk to the delivery path: HL7 outbound queue
 
               All result delivery to ordering provider EHRs flows through
               the HL7 integration engine via outbound ORU^R01 messages.
@@ -285,7 +285,7 @@ notebooks:
             text: |
               **Messages are being sent. They are being NACKed by the
               receiving EHRs at a high rate.** That means the messages
-              themselves are malformed — the EHRs are receiving
+              themselves are malformed - the EHRs are receiving
               something they cannot parse and rejecting it. This is not
               a network outage or a capacity issue; this is a **content
               problem** on the outbound side.
@@ -294,7 +294,7 @@ notebooks:
               config.
 
               ---
-              ## Step 4 — What changed? The config-version signal
+              ## Step 4 - What changed? The config-version signal
 
               `hospital.hl7.config_version` is a gauge that the engine
               increments every time a new route map is loaded. Each
@@ -329,7 +329,7 @@ notebooks:
             text: |
               **There it is.** A config-version increment **immediately
               before** routing errors started accumulating. The new
-              route map is malformed — it is producing outputs the
+              route map is malformed - it is producing outputs the
               receiving EHRs reject.
 
               This is the kind of correlation Bits AI SRE flags
@@ -337,7 +337,7 @@ notebooks:
               symptom. Two metrics, one timestamp, root cause.
 
               ---
-              ## Step 5 — Confirm the back-pressure cascade
+              ## Step 5 - Confirm the back-pressure cascade
 
               If the diagnosis is correct, we should see back-pressure
               propagate **inward** from the HL7 engine through LIMS
@@ -378,7 +378,7 @@ notebooks:
               Cascade confirmed.  HL7 queue grows first, **then** LIMS
               results-pending-delivery grows, **then** LIMS HL7 write
               failures spike as LIMS gives up retrying. The lag between
-              the three signals is typically 30–60 seconds — exactly
+              the three signals is typically 30-60 seconds - exactly
               the time it takes for LIMS connection retries to time
               out and surface as failures.
         type: "notebook_cells"
@@ -411,13 +411,13 @@ notebooks:
             type: "markdown"
             text: |
               LIMS DB connection pool saturates as result-delivery
-              retries pile up — confirms LIMS is feeling back-pressure
+              retries pile up - confirms LIMS is feeling back-pressure
               from the broken outbound path. New order acceptance
               latency will start to slip next, which is the upstream
               effect on the *lab* itself.
 
               ---
-              ## Step 6 — Specimen-side effects (the operations view)
+              ## Step 6 - Specimen-side effects (the operations view)
 
               Once LIMS slows down accepting new orders, specimens
               physically pile up at accessioning. The pre-analytic
@@ -483,12 +483,12 @@ notebooks:
               past 180; one refrigerator past 90% capacity; worst-case
               specimen has ~40 minutes of stability remaining. If the
               cascade is not resolved soon, specimens will require
-              **re-collection** — which means recalling patients, a
+              **re-collection** - which means recalling patients, a
               regulatory event under CAP recordkeeping, and a hard
               customer-trust event with the ordering providers.
 
               ---
-              ## Step 7 — Why this is NOT the WiFi cascade or the BD cascade
+              ## Step 7 - Why this is NOT the WiFi cascade or the BD cascade
 
               Three Bits-AI-SRE-friendly stories live in this hospital.
               They are intentionally disjoint so the AI does not mix
@@ -501,7 +501,7 @@ notebooks:
               | Floor / Wing                             | 3 / East                       | (all floors) / (all wings) Pharmacy | **2 / West** Lab           |
               | `incident_domain` tag                    | network-to-device              | pharmacy-automation          | **diagnostic-laboratory**         |
               | Root-cause metric                        | `hospital.network.channel_utilization_pct` | `hospital.pyxis.inventory_poll_rate_per_min` | **`hospital.hl7.routing_errors_total` + `hospital.hl7.config_version`** |
-              | Customer-facing punch line               | Pumps offline → patient safety | Nurse dispense delay → DEA risk | **Provider TAT breach → contract risk** |
+              | Customer-facing punch line               | Pumps offline -> patient safety | Nurse dispense delay -> DEA risk | **Provider TAT breach -> contract risk** |
 
               Filtering by `incident_domain:diagnostic-laboratory` (or by
               any `hl7_integration_engine` / `lims_app_server` /
@@ -511,7 +511,7 @@ notebooks:
               automatically.
 
               ---
-              ## Step 8 — Remediation
+              ## Step 8 - Remediation
 
               The self-heal workflow
               `[Healthcare/Quest] HL7 Engine Config Rollback & Recovery`
@@ -523,7 +523,7 @@ notebooks:
                  via the Rhapsody admin API.
               3. **Resume outbound routes** post-reload.
               4. **Wait for the queue to drain** (~120s for a typical
-                 4–10k message backlog).
+                 4-10k message backlog).
               5. **Verify recovery** on both the engine queue depth and
                  the LIMS results-pending backlog.
               6. **Notify integration ops** + **open a change-review
@@ -567,56 +567,56 @@ notebooks:
               drains, LIMS results-pending falls back to baseline, and
               the worker thread pool returns to normal headroom. The
               pre-analytic queue and refrigerator capacity recover
-              over the following 10–15 minutes as the operational
+              over the following 10-15 minutes as the operational
               backlog clears.
 
               ---
-              # 💰 Business Impact & ROI
+              # Business Impact & ROI
 
               The cascade above looks technical, but **every minute of
               degradation translates directly into Quest's commercial
               and clinical-safety obligations**. This is why the
-              observability layer is not a "nice to have" — it pays
+              observability layer is not a "nice to have"- it pays
               for itself the first time it prevents a contracted-TAT
               breach event.
 
               ## What just happened, in operations terms
 
               - **Affected scope:** every ordering-provider customer of
-                this lab (typically 800–2,500 contracted clinics /
+                this lab (typically 800-2,500 contracted clinics /
                 hospitals / IDNs per Quest regional hub)
-              - **Cascade duration if undetected (manual MTTR):** 45–90
+              - **Cascade duration if undetected (manual MTTR):** 45-90
                 minutes (the integration team has to be paged, has to
                 triage which subsystem broke, has to verify it was the
                 config push and not a coincident HL7 EHR-side outage,
                 and finally has to roll back manually).
               - **Cascade duration with Datadog auto-remediation:**
-                **<5 minutes** end-to-end (detect → root-cause →
-                pause → rollback → verify → notify).
+                **<5 minutes** end-to-end (detect -> root-cause ->
+                pause -> rollback -> verify -> notify).
 
-              ## ROI math — single incident
+              ## ROI math - single incident
 
               | Lever                              | Manual MTTR (status quo)            | Automated (Datadog + Bits AI SRE)  |
               |------------------------------------|--------------------------------------|------------------------------------|
-              | Time to detect                     | 8–20 min (provider calls aggregate) | < 60 sec (queue-depth monitor)     |
-              | Time to root-cause                 | 25–60 min (cross-team triage)       | < 90 sec (Bits AI SRE walks queue → config_version) |
-              | Time to remediate                  | 15–30 min (manual config rollback)  | < 3 min (workflow rollback API)    |
-              | **Total MTTR**                     | **45–90 min**                        | **< 5 min**                        |
-              | STAT TAT breaches per incident     | 60–150 STAT orders past contracted window | < 10 STAT orders affected     |
-              | Routine TAT breaches per incident  | 400–1,200 routine orders past contract | < 100 routine orders affected   |
-              | Specimens at re-collection risk    | 10–40 specimens past stability      | 0 specimens                        |
+              | Time to detect                     | 8-20 min (provider calls aggregate) | < 60 sec (queue-depth monitor)     |
+              | Time to root-cause                 | 25-60 min (cross-team triage)       | < 90 sec (Bits AI SRE walks queue -> config_version) |
+              | Time to remediate                  | 15-30 min (manual config rollback)  | < 3 min (workflow rollback API)    |
+              | **Total MTTR**                     | **45-90 min**                        | **< 5 min**                        |
+              | STAT TAT breaches per incident     | 60-150 STAT orders past contracted window | < 10 STAT orders affected     |
+              | Routine TAT breaches per incident  | 400-1,200 routine orders past contract | < 100 routine orders affected   |
+              | Specimens at re-collection risk    | 10-40 specimens past stability      | 0 specimens                        |
 
               ## Direct contractual exposure (per incident)
 
               Most large-IDN and reference-lab contracts include
               **TAT-percentile credits** (Quest owes a per-order credit
               when STAT TAT misses the contracted window). Typical
-              schedule: **$3–$8 per STAT breach, $1–$3 per routine
+              schedule: **$3-$8 per STAT breach, $1-$3 per routine
               breach.**
 
-              - Manual incident: ~120 STAT × $5 + ~800 routine × $2 ≈
+              - Manual incident: ~120 STAT x $5 + ~800 routine x $2 ~
                 **$2,200 in direct credits per incident**
-              - Automated incident: ~8 STAT × $5 + ~80 routine × $2 ≈
+              - Automated incident: ~8 STAT x $5 + ~80 routine x $2 ~
                 **$200 in credits per incident**
               - **Per-incident savings: ~$2,000 in direct contractual
                 credits**, before considering renewal-cycle pricing
@@ -632,7 +632,7 @@ notebooks:
 
               | Scope                                   | Annual MTTR hrs saved | TAT-credit dollars avoided | Specimens re-collection avoided |
               |-----------------------------------------|-----------------------|----------------------------|--------------------------------- |
-              | One regional reference lab              | 6 × 1.25 = **7.5 hrs** | ~$12,000                   | ~50                             |
+              | One regional reference lab              | 6 x 1.25 = **7.5 hrs** | ~$12,000                   | ~50                             |
               | Quest national footprint (40+ labs)     | 300+ hrs              | ~$480,000                  | ~2,000                          |
 
               ## What's not on the spreadsheet (the bigger numbers)
@@ -646,10 +646,10 @@ notebooks:
               prove it.
 
               **Specimen re-collection.** Patient-side cost of one
-              re-collected specimen averages **$120–$400** (patient
-              recall, re-draw, re-courier, re-analyze) — plus
+              re-collected specimen averages **$120-$400** (patient
+              recall, re-draw, re-courier, re-analyze) - plus
               reputational damage with the ordering provider. Avoiding
-              50 re-collections per lab × 40 labs = **2,000 specimens
+              50 re-collections per lab x 40 labs = **2,000 specimens
               per year**, at >$240K in direct re-collection cost alone,
               before counting the harder-to-quantify trust impact.
 
@@ -682,7 +682,7 @@ notebooks:
               first prevented TAT-credit incident, the first prevented
               re-collection event, or the first 60-minute MTTR avoided
               at a single reference lab. Across Quest's national
-              footprint, **the math compounds linearly** — and every
+              footprint, **the math compounds linearly** - and every
               additional incident pattern automated after that is
               pure margin against the same observability spend.
 
@@ -690,24 +690,24 @@ notebooks:
               ## Follow-ups
 
               1. Re-deploy the fixed HL7 routing rule under a **canary
-                 cluster** that handles ≤5% of outbound volume for 24h
+                 cluster** that handles <=5% of outbound volume for 24h
                  before promotion.
               2. Add a **pre-deploy synthetic** that ships one canary
                  ORU^R01 through every outbound route and asserts an
                  ACK before allowing the deploy to promote.
               3. Make `hospital.hl7.config_version` change a **release
-                 gate signal** in Datadog Change Tracking — every
+                 gate signal** in Datadog Change Tracking - every
                  increment auto-correlates against routing-error and
                  NACK counters for 15 minutes post-deploy.
               4. Walk this notebook with the next integration vendor
-                 QBR — turn "your engine occasionally breaks" into a
+                 QBR - turn "your engine occasionally breaks"into a
                  quantified product-reliability conversation.
         type: "notebook_cells"
 
   - id: "quest-tat-slo-burn-runbook"
-    name: "📉 Quest TAT SLO Burn Runbook"
+    name: "Quest TAT SLO Burn Runbook"
     type: runbook
-    description: "Operational runbook for responding to STAT or routine TAT SLO burn-rate alerts. Walks through the standard diagnostic ladder (delivery layer → LIMS → analyzers → specimen logistics) so on-call can localize the bottleneck in under 3 minutes. Cross-references the HL7 cascade RCA notebook when delivery is the cause."
+    description: "Operational runbook for responding to STAT or routine TAT SLO burn-rate alerts. Walks through the standard diagnostic ladder (delivery layer -> LIMS -> analyzers -> specimen logistics) so on-call can localize the bottleneck in under 3 minutes. Cross-references the HL7 cascade RCA notebook when delivery is the cause."
     time_range: "1h"
     tags:
       - "vertical:healthcare"
@@ -724,8 +724,8 @@ notebooks:
 
               Use this runbook when a STAT or routine TAT SLO is
               burning faster than budget. Goal: localize the
-              bottleneck to one of three layers — **delivery**,
-              **LIMS**, or **lab production** — in under 3 minutes,
+              bottleneck to one of three layers - **delivery**,
+              **LIMS**, or **lab production** - in under 3 minutes,
               then jump to the right deeper runbook.
 
               ## Decision ladder
@@ -781,7 +781,7 @@ notebooks:
               | HL7 queue + LIMS pending both climbing        | Delivery (HL7 engine)   | HL7 Engine Config Cascade RCA notebook      |
               | LIMS pending climbing, HL7 queue flat         | LIMS-internal           | LIMS db / external EHR feed check           |
               | Pre-analytic queue + analyzer slowdown        | Lab production          | Reagent QC + analyzer module status check   |
-              | All three flat, but TAT still burning         | Burn from earlier window | Look back 1–2 hours; backlog working through |
+              | All three flat, but TAT still burning         | Burn from earlier window | Look back 1-2 hours; backlog working through |
 
               Action: route the SLO burn-rate alert into the appropriate
               deeper runbook based on the table above.

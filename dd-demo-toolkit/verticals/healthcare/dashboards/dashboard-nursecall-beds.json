@@ -35,7 +35,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.nursecall.active_calls{*}",
+                "query": "sum:hospital.nursecall.active_calls{$campus,$floor,$wing,$department}",
                 "aggregator": "last"
               }
             ],
@@ -67,7 +67,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.nursecall.calls_total{*}.as_count()",
+                "query": "sum:hospital.nursecall.calls_total{$campus,$floor,$wing,$department}.as_count()",
                 "aggregator": "sum"
               }
             ],
@@ -99,7 +99,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.nursecall.escalations_total{*}.as_count()",
+                "query": "sum:hospital.nursecall.escalations_total{$campus,$floor,$wing,$department}.as_count()",
                 "aggregator": "sum"
               }
             ],
@@ -131,7 +131,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.bed.occupied_count{*}",
+                "query": "sum:hospital.bed.occupied_count{$campus,$floor,$wing,$department}",
                 "aggregator": "last"
               }
             ],
@@ -163,7 +163,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.bed.available_count{*}",
+                "query": "sum:hospital.bed.available_count{$campus,$floor,$wing,$department}",
                 "aggregator": "last"
               }
             ],
@@ -195,7 +195,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.bed.fall_risk_alerts_total{*}.as_count()",
+                "query": "sum:hospital.bed.fall_risk_alerts_total{$campus,$floor,$wing,$department}.as_count()",
                 "aggregator": "sum"
               }
             ],
@@ -245,7 +245,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.nursecall.response_time_sec{*} by {floor}"
+                "query": "avg:hospital.nursecall.response_time_sec{$campus,$floor,$wing,$department} by {floor}"
               }
             ],
             "response_format": "timeseries",
@@ -287,7 +287,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.nursecall.calls_total{*} by {department}.as_count()"
+                "query": "sum:hospital.nursecall.calls_total{$campus,$floor,$wing,$department} by {department}.as_count()"
               }
             ],
             "response_format": "timeseries",
@@ -317,7 +317,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.nursecall.active_calls{*} by {floor,wing}"
+                "query": "sum:hospital.nursecall.active_calls{$campus,$floor,$wing,$department} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -347,7 +347,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.nursecall.escalations_total{*} by {department}.as_count()"
+                "query": "sum:hospital.nursecall.escalations_total{$campus,$floor,$wing,$department} by {department}.as_count()"
               }
             ],
             "response_format": "timeseries",
@@ -398,12 +398,12 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.bed.occupied_count{*} by {floor}"
+                "query": "sum:hospital.bed.occupied_count{$campus,$floor,$wing,$department} by {floor}"
               },
               {
                 "data_source": "metrics",
                 "name": "query2",
-                "query": "sum:hospital.bed.available_count{*} by {floor}"
+                "query": "sum:hospital.bed.available_count{$campus,$floor,$wing,$department} by {floor}"
               }
             ],
             "response_format": "timeseries",
@@ -433,7 +433,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.bed.turnover_time_min{*} by {floor}"
+                "query": "avg:hospital.bed.turnover_time_min{$campus,$floor,$wing,$department} by {floor}"
               }
             ],
             "response_format": "timeseries",
@@ -475,7 +475,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.bed.cleaning_queue{*} by {floor}"
+                "query": "sum:hospital.bed.cleaning_queue{$campus,$floor,$wing,$department} by {floor}"
               }
             ],
             "response_format": "timeseries",
@@ -505,7 +505,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.bed.fall_risk_alerts_total{*} by {floor}.as_count()"
+                "query": "sum:hospital.bed.fall_risk_alerts_total{$campus,$floor,$wing,$department} by {floor}.as_count()"
               }
             ],
             "response_format": "timeseries",
@@ -535,7 +535,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.bed.exit_alerts_total{*} by {floor}.as_count()"
+                "query": "sum:hospital.bed.exit_alerts_total{$campus,$floor,$wing,$department} by {floor}.as_count()"
               }
             ],
             "response_format": "timeseries",
@@ -552,6 +552,11 @@
     }
   ],
   "template_variables": [
+    {
+      "name": "campus",
+      "prefix": "campus",
+      "default": "*"
+    },
     {
       "name": "floor",
       "prefix": "floor",

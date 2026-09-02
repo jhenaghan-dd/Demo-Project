@@ -1,12 +1,12 @@
 {
-  "title": "Quest Diagnostics — HL7 Integration Engine Detail",
+  "title": "Quest Diagnostics - HL7 Integration Engine Detail",
   "description": "Per-node drilldown of the HL7 integration engine cluster (Rhapsody-class). Used to walk the cascade root: config version, routing errors, outbound queue, worker thread saturation, ACK/NACK rates, and the LIMS-side back-pressure signals downstream of the engine. Pairs with the `quest-lab-integration-cascade-rca` notebook.",
   "widgets": [
 
     {
       "definition": {
         "type": "note",
-        "content": "# HL7 Integration Engine — Cluster Detail\n**Cluster:** Rhapsody-class HA cluster. **Outbound:** ORU^R01 result messages to ordering-provider EHRs.\n\nThis dashboard is the drilldown when an HL7 outbound queue or routing-error alert fires. Read top-to-bottom: change-event signal → queue/worker saturation → ACK/NACK/sent flow → LIMS-side downstream impact.",
+        "content": "# HL7 Integration Engine - Cluster Detail\n**Cluster:** Rhapsody-class HA cluster. **Outbound:** ORU^R01 result messages to ordering-provider EHRs.\n\nThis dashboard is the drilldown when an HL7 outbound queue or routing-error alert fires. Read top-to-bottom: change-event signal -> queue/worker saturation -> ACK/NACK/sent flow -> LIMS-side downstream impact.",
         "background_color": "vivid_blue",
         "font_size": "14",
         "text_align": "left",
@@ -86,7 +86,7 @@
     {
       "definition": {
         "type": "note",
-        "content": "## Cascade root — config version + routing errors\nA `config_version` step IMMEDIATELY followed by `routing_errors` accumulation is the smoking-gun pattern. Bits AI SRE auto-correlates these.",
+        "content": "## Cascade root - config version + routing errors\nA `config_version` step IMMEDIATELY followed by `routing_errors` accumulation is the smoking-gun pattern. Bits AI SRE auto-correlates these.",
         "background_color": "yellow",
         "font_size": "14",
         "text_align": "left",
@@ -176,7 +176,7 @@
     },
     {
       "definition": {
-        "title": "NACK Rate % (sent → NACKed)",
+        "title": "NACK Rate % (sent -> NACKed)",
         "type": "timeseries",
         "requests": [
           {"formulas": [{"formula": "n / s * 100", "alias": "NACK %"}], "queries": [

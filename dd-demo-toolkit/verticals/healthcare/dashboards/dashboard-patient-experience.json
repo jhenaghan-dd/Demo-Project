@@ -12,11 +12,6 @@
       "name": "wing",
       "prefix": "wing",
       "default": "*"
-    },
-    {
-      "name": "shift",
-      "prefix": "shift",
-      "default": "*"
     }
   ],
   "widgets": [
@@ -71,7 +66,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.hcahps_score{$floor,$wing,$shift}",
+                "query": "avg:hospital.patient.hcahps_score{$floor,$wing}",
                 "aggregator": "avg"
               }
             ],
@@ -120,7 +115,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.hcahps_score{$shift} by {floor,wing}"
+                "query": "avg:hospital.patient.hcahps_score{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -157,7 +152,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.satisfaction_nurse_communication{$floor,$wing,$shift}",
+                "query": "avg:hospital.patient.satisfaction_nurse_communication{$floor,$wing}",
                 "aggregator": "avg"
               }
             ],
@@ -206,7 +201,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.satisfaction_responsiveness{$floor,$wing,$shift}",
+                "query": "avg:hospital.patient.satisfaction_responsiveness{$floor,$wing}",
                 "aggregator": "avg"
               }
             ],
@@ -255,7 +250,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.satisfaction_pain_management{$floor,$wing,$shift}",
+                "query": "avg:hospital.patient.satisfaction_pain_management{$floor,$wing}",
                 "aggregator": "avg"
               }
             ],
@@ -304,7 +299,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.satisfaction_discharge_info{$floor,$wing,$shift}",
+                "query": "avg:hospital.patient.satisfaction_discharge_info{$floor,$wing}",
                 "aggregator": "avg"
               }
             ],
@@ -371,7 +366,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.staffing.nurses_on_duty{$shift} by {floor,wing}"
+                "query": "avg:hospital.staffing.nurses_on_duty{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -401,7 +396,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.staffing.nurse_to_patient_ratio{$shift} by {floor,wing}"
+                "query": "avg:hospital.staffing.nurse_to_patient_ratio{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -438,7 +433,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.staffing.open_positions{$floor,$wing,$shift}",
+                "query": "sum:hospital.staffing.open_positions{$floor,$wing}",
                 "aggregator": "sum"
               }
             ],
@@ -487,7 +482,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.staffing.overtime_hours{$shift} by {floor,wing}"
+                "query": "avg:hospital.staffing.overtime_hours{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -517,7 +512,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.staffing.turnover_rate_pct{$floor,$wing,$shift}",
+                "query": "avg:hospital.staffing.turnover_rate_pct{$floor,$wing}",
                 "aggregator": "avg"
               }
             ],
@@ -584,7 +579,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.wait_time_min{$shift} by {floor,wing}"
+                "query": "avg:hospital.patient.wait_time_min{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -614,7 +609,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.pain_response_time_min{$shift} by {floor,wing}"
+                "query": "avg:hospital.patient.pain_response_time_min{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -644,7 +639,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.discharge_process_hours{$shift} by {floor,wing}"
+                "query": "avg:hospital.patient.discharge_process_hours{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -674,7 +669,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.wait_time_min{floor:3,wing:east,$shift}",
+                "query": "avg:hospital.patient.wait_time_min{floor:3,wing:east}",
                 "aggregator": "avg"
               }
             ],
@@ -741,7 +736,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.physician.mobile_orders_placed{$shift} by {floor}"
+                "query": "sum:hospital.physician.mobile_orders_placed{*} by {floor}"
               }
             ],
             "response_format": "timeseries",
@@ -771,7 +766,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.physician.mobile_results_viewed{$shift} by {floor}"
+                "query": "sum:hospital.physician.mobile_results_viewed{*} by {floor}"
               }
             ],
             "response_format": "timeseries",
@@ -801,7 +796,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.physician.order_to_admin_min{$shift} by {floor,wing}"
+                "query": "avg:hospital.physician.order_to_admin_min{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -838,7 +833,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.physician.patient_interaction_min{$shift} by {floor,wing}"
+                "query": "avg:hospital.physician.patient_interaction_min{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -868,7 +863,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.physician.rounds_completed{$floor,$wing,$shift}",
+                "query": "sum:hospital.physician.rounds_completed{$floor,$wing}",
                 "aggregator": "sum"
               }
             ],
@@ -918,7 +913,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.telemetry.active_alarms{$shift} by {floor,wing}"
+                "query": "avg:hospital.telemetry.active_alarms{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -948,7 +943,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.telemetry.false_alarm_rate_pct{$shift} by {floor,wing}"
+                "query": "avg:hospital.telemetry.false_alarm_rate_pct{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -988,7 +983,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.telemetry.monitoring_gap_events{floor:3,wing:east,$shift}"
+                "query": "sum:hospital.telemetry.monitoring_gap_events{floor:3,wing:east}"
               },
               {
                 "data_source": "metrics",
@@ -1023,7 +1018,7 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.telemetry.alarm_response_time_sec{$shift} by {floor,wing}"
+                "query": "avg:hospital.telemetry.alarm_response_time_sec{*} by {floor,wing}"
               }
             ],
             "response_format": "timeseries",
@@ -1074,12 +1069,12 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "avg:hospital.patient.hcahps_score{floor:3,wing:east,$shift}"
+                "query": "avg:hospital.patient.hcahps_score{floor:3,wing:east}"
               },
               {
                 "data_source": "metrics",
                 "name": "query2",
-                "query": "avg:hospital.staffing.nurse_to_patient_ratio{floor:3,wing:east,$shift}"
+                "query": "avg:hospital.staffing.nurse_to_patient_ratio{floor:3,wing:east}"
               }
             ],
             "response_format": "timeseries",
@@ -1150,12 +1145,12 @@
               {
                 "data_source": "metrics",
                 "name": "query1",
-                "query": "sum:hospital.telemetry.monitoring_gap_events{floor:3,wing:east,$shift}"
+                "query": "sum:hospital.telemetry.monitoring_gap_events{floor:3,wing:east}"
               },
               {
                 "data_source": "metrics",
                 "name": "query2",
-                "query": "avg:hospital.physician.order_to_admin_min{floor:3,wing:east,$shift}"
+                "query": "avg:hospital.physician.order_to_admin_min{floor:3,wing:east}"
               }
             ],
             "response_format": "timeseries",
