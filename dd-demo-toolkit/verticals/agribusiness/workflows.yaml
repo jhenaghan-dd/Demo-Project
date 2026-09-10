@@ -12,6 +12,17 @@
 # ServiceNow/Slack connection in the UI, then add the `connection_label:` back on
 # the step plus a verified action ID (see WORKFLOW_ACTIONS.md).
 #
+# TO MAKE THE SERVICENOW STEPS REAL (~30 seconds, WORKFLOW_ACTIONS.md Method 1):
+#   1. Datadog → Workflow Automation → New Workflow (blank).
+#   2. Drag "ServiceNow — Create Incident" onto the canvas.
+#   3. Click "Edit JSON Spec"; copy the `actionId` at the top of the step block.
+#   4. Paste it here as `action_id: com.datadoghq.<...>` on the two steps below.
+#      A per-step `action_id:` beats the type lookup (`_resolve_action_id`,
+#      resources/workflows.py) so no Python change is needed.
+#   5. Discard the scratch workflow — action IDs are stable across instances.
+# Do NOT guess the ID: an unknown actionId is a no-op, but a WRONG one 400s the
+# entire workflow create, which is worse than the current safe fallback.
+#
 # The *executable* demo of the loop is therefore SIMULATED elsewhere and is what
 # you should show live:
 #   - the agri.itsm.* metrics + "AIOps — ServiceNow Auto-Remediation" dashboard

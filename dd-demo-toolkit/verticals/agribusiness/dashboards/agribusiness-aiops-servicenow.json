@@ -1,60 +1,478 @@
 {
-  "title": "Bunge — AIOps: ServiceNow Auto-Remediation [dd-demo-toolkit:agribusiness]",
-  "description": "Eduardo's #1 ask, live: Watchdog detects, a Datadog Workflow enriches and auto-opens a ServiceNow incident, then auto-closes it on recovery — analysts see one real incident, not an alert storm. SIMULATED close-loop (no live ServiceNow integration in this env): the agri.itsm.* signals are driven by the data-platform cascade in lockstep with the incident. [dd-demo-toolkit:agribusiness]",
+  "title": "Bunge \u2014 AIOps: ServiceNow Auto-Remediation [dd-demo-toolkit:agribusiness]",
+  "description": "Eduardo's #1 ask, live: Watchdog detects, a Datadog Workflow enriches and auto-opens a ServiceNow incident, then auto-closes it on recovery \u2014 analysts see one real incident, not an alert storm. SIMULATED close-loop (no live ServiceNow integration in this env): the agri.itsm.* signals are driven by the data-platform cascade in lockstep with the incident. [dd-demo-toolkit:agribusiness]",
   "layout_type": "ordered",
   "reflow_type": "fixed",
   "widgets": [
     {
-      "definition": {"type": "note", "content": "# AIOps — ServiceNow Auto-Remediation (close-loop)\n\n**Enrich → auto-open → auto-close**, human-in-the-loop where you want control. This is the loop Eduardo asked for. *Simulated here — no live ServiceNow integration in this env; the counts below are driven in lockstep with the data-platform cascade.*", "background_color": "vivid_blue", "font_size": "14", "text_align": "left", "show_tick": false},
-      "layout": {"x": 0, "y": 0, "width": 12, "height": 2}
+      "definition": {
+        "type": "note",
+        "content": "# AIOps \u2014 ServiceNow Auto-Remediation (close-loop)\n\n**Enrich \u2192 auto-open \u2192 auto-close**, human-in-the-loop where you want control. This is the loop Eduardo asked for. *Simulated here \u2014 no live ServiceNow integration in this env; the counts below are driven in lockstep with the data-platform cascade.*",
+        "background_color": "vivid_blue",
+        "font_size": "14",
+        "text_align": "left",
+        "show_tick": false
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 12,
+        "height": 2
+      }
     },
     {
-      "definition": {"type": "query_value", "title": "Incidents Auto-Opened", "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "max:agri.itsm.incidents_auto_opened{*}", "aggregator": "last"}], "response_format": "scalar"}], "autoscale": true, "precision": 0},
-      "layout": {"x": 0, "y": 2, "width": 2, "height": 2}
+      "definition": {
+        "type": "query_value",
+        "title": "Incidents Auto-Opened",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "q"
+              }
+            ],
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "q",
+                "query": "max:agri.itsm.incidents_auto_opened{*}",
+                "aggregator": "last"
+              }
+            ],
+            "response_format": "scalar"
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {
+        "x": 0,
+        "y": 2,
+        "width": 2,
+        "height": 2
+      }
     },
     {
-      "definition": {"type": "query_value", "title": "Incidents Auto-Closed", "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "max:agri.itsm.incidents_auto_closed{*}", "aggregator": "last"}], "response_format": "scalar"}], "autoscale": true, "precision": 0},
-      "layout": {"x": 2, "y": 2, "width": 2, "height": 2}
+      "definition": {
+        "type": "query_value",
+        "title": "Incidents Auto-Closed",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "q"
+              }
+            ],
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "q",
+                "query": "max:agri.itsm.incidents_auto_closed{*}",
+                "aggregator": "last"
+              }
+            ],
+            "response_format": "scalar"
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {
+        "x": 2,
+        "y": 2,
+        "width": 2,
+        "height": 2
+      }
     },
     {
-      "definition": {"type": "query_value", "title": "Open Incidents Now", "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "max:agri.itsm.incidents_open{*}", "aggregator": "last"}], "response_format": "scalar", "conditional_formats": [{"comparator": ">=", "value": 1, "palette": "white_on_yellow"}, {"comparator": "<", "value": 1, "palette": "white_on_green"}]}], "autoscale": true, "precision": 0},
-      "layout": {"x": 4, "y": 2, "width": 2, "height": 2}
+      "definition": {
+        "type": "query_value",
+        "title": "Open Incidents Now",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "q"
+              }
+            ],
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "q",
+                "query": "max:agri.itsm.incidents_open{*}",
+                "aggregator": "last"
+              }
+            ],
+            "response_format": "scalar",
+            "conditional_formats": [
+              {
+                "comparator": ">=",
+                "value": 1,
+                "palette": "white_on_yellow"
+              },
+              {
+                "comparator": "<",
+                "value": 1,
+                "palette": "white_on_green"
+              }
+            ]
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {
+        "x": 4,
+        "y": 2,
+        "width": 2,
+        "height": 2
+      }
     },
     {
-      "definition": {"type": "query_value", "title": "MTTR (min) — automated", "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "avg:agri.itsm.mttr_minutes{*}", "aggregator": "avg"}], "response_format": "scalar", "conditional_formats": [{"comparator": ">", "value": 30, "palette": "white_on_red"}, {"comparator": ">", "value": 15, "palette": "white_on_yellow"}, {"comparator": "<=", "value": 15, "palette": "white_on_green"}]}], "autoscale": true, "custom_unit": "min", "precision": 1},
-      "layout": {"x": 6, "y": 2, "width": 2, "height": 2}
+      "definition": {
+        "type": "query_value",
+        "title": "MTTR (min) \u2014 automated",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "q"
+              }
+            ],
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "q",
+                "query": "avg:agri.itsm.mttr_minutes{*}",
+                "aggregator": "avg"
+              }
+            ],
+            "response_format": "scalar",
+            "conditional_formats": [
+              {
+                "comparator": ">",
+                "value": 30,
+                "palette": "white_on_red"
+              },
+              {
+                "comparator": ">",
+                "value": 15,
+                "palette": "white_on_yellow"
+              },
+              {
+                "comparator": "<=",
+                "value": 15,
+                "palette": "white_on_green"
+              }
+            ]
+          }
+        ],
+        "autoscale": true,
+        "custom_unit": "min",
+        "precision": 1
+      },
+      "layout": {
+        "x": 6,
+        "y": 2,
+        "width": 2,
+        "height": 2
+      }
     },
     {
-      "definition": {"type": "query_value", "title": "Noise Reduction %", "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "avg:agri.itsm.noise_reduction_pct{*}", "aggregator": "avg"}], "response_format": "scalar", "conditional_formats": [{"comparator": ">=", "value": 85, "palette": "white_on_green"}, {"comparator": "<", "value": 85, "palette": "white_on_yellow"}]}], "autoscale": true, "custom_unit": "%", "precision": 0},
-      "layout": {"x": 8, "y": 2, "width": 2, "height": 2}
+      "definition": {
+        "type": "query_value",
+        "title": "Noise Reduction %",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "q"
+              }
+            ],
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "q",
+                "query": "avg:agri.itsm.noise_reduction_pct{*}",
+                "aggregator": "avg"
+              }
+            ],
+            "response_format": "scalar",
+            "conditional_formats": [
+              {
+                "comparator": ">=",
+                "value": 85,
+                "palette": "white_on_green"
+              },
+              {
+                "comparator": "<",
+                "value": 85,
+                "palette": "white_on_yellow"
+              }
+            ]
+          }
+        ],
+        "autoscale": true,
+        "custom_unit": "%",
+        "precision": 0
+      },
+      "layout": {
+        "x": 8,
+        "y": 2,
+        "width": 2,
+        "height": 2
+      }
     },
     {
-      "definition": {"type": "query_value", "title": "Auto-Close Rate %", "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "avg:agri.itsm.auto_close_rate_pct{*}", "aggregator": "avg"}], "response_format": "scalar", "conditional_formats": [{"comparator": ">=", "value": 80, "palette": "white_on_green"}, {"comparator": "<", "value": 80, "palette": "white_on_yellow"}]}], "autoscale": true, "custom_unit": "%", "precision": 0},
-      "layout": {"x": 10, "y": 2, "width": 2, "height": 2}
+      "definition": {
+        "type": "query_value",
+        "title": "Auto-Close Rate %",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "q"
+              }
+            ],
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "q",
+                "query": "avg:agri.itsm.auto_close_rate_pct{*}",
+                "aggregator": "avg"
+              }
+            ],
+            "response_format": "scalar",
+            "conditional_formats": [
+              {
+                "comparator": ">=",
+                "value": 80,
+                "palette": "white_on_green"
+              },
+              {
+                "comparator": "<",
+                "value": 80,
+                "palette": "white_on_yellow"
+              }
+            ]
+          }
+        ],
+        "autoscale": true,
+        "custom_unit": "%",
+        "precision": 0
+      },
+      "layout": {
+        "x": 10,
+        "y": 2,
+        "width": 2,
+        "height": 2
+      }
     },
     {
-      "definition": {"type": "note", "content": "## The loop, live\nAn incident auto-opens the moment the customer-facing symptom appears and auto-closes when the feed and quotes recover. The alert storm collapses into one correlated incident.", "background_color": "vivid_orange", "font_size": "14", "text_align": "left", "show_tick": false},
-      "layout": {"x": 0, "y": 4, "width": 12, "height": 1}
+      "definition": {
+        "type": "note",
+        "content": "## The loop, live\nAn incident auto-opens the moment the customer-facing symptom appears and auto-closes when the feed and quotes recover. The alert storm collapses into one correlated incident.",
+        "background_color": "vivid_orange",
+        "font_size": "14",
+        "text_align": "left",
+        "show_tick": false
+      },
+      "layout": {
+        "x": 0,
+        "y": 4,
+        "width": 12,
+        "height": 1
+      }
     },
     {
-      "definition": {"type": "timeseries", "title": "Open ServiceNow incidents (auto-opened → auto-closed pulse)", "show_legend": true, "requests": [{"queries": [{"data_source": "metrics", "name": "q", "query": "max:agri.itsm.incidents_open{*}"}], "response_format": "timeseries", "display_type": "area"}]},
-      "layout": {"x": 0, "y": 5, "width": 6, "height": 3}
+      "definition": {
+        "type": "timeseries",
+        "title": "Open ServiceNow incidents (auto-opened \u2192 auto-closed pulse)",
+        "show_legend": true,
+        "requests": [
+          {
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "q",
+                "query": "max:agri.itsm.incidents_open{*}"
+              }
+            ],
+            "response_format": "timeseries",
+            "display_type": "area"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 5,
+        "width": 6,
+        "height": 3
+      }
     },
     {
-      "definition": {"type": "timeseries", "title": "Alert noise collapsed into one incident (raw signals suppressed)", "show_legend": true, "requests": [{"queries": [{"data_source": "metrics", "name": "q", "query": "max:agri.itsm.alerts_suppressed{*}"}], "response_format": "timeseries", "display_type": "bars"}]},
-      "layout": {"x": 6, "y": 5, "width": 6, "height": 3}
+      "definition": {
+        "type": "timeseries",
+        "title": "Alert noise collapsed into one incident (raw signals suppressed)",
+        "show_legend": true,
+        "requests": [
+          {
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "q",
+                "query": "max:agri.itsm.alerts_suppressed{*}"
+              }
+            ],
+            "response_format": "timeseries",
+            "display_type": "bars"
+          }
+        ]
+      },
+      "layout": {
+        "x": 6,
+        "y": 5,
+        "width": 6,
+        "height": 3
+      }
     },
     {
-      "definition": {"type": "timeseries", "title": "Cumulative auto-opened vs auto-closed (the close-loop balances)", "show_legend": true, "requests": [{"formulas": [{"formula": "opened", "alias": "auto-opened"}, {"formula": "closed", "alias": "auto-closed"}], "queries": [{"data_source": "metrics", "name": "opened", "query": "max:agri.itsm.incidents_auto_opened{*}"}, {"data_source": "metrics", "name": "closed", "query": "max:agri.itsm.incidents_auto_closed{*}"}], "response_format": "timeseries", "display_type": "line"}]},
-      "layout": {"x": 0, "y": 8, "width": 6, "height": 3}
+      "definition": {
+        "type": "timeseries",
+        "title": "Cumulative auto-opened vs auto-closed (the close-loop balances)",
+        "show_legend": true,
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "opened",
+                "alias": "auto-opened"
+              },
+              {
+                "formula": "closed",
+                "alias": "auto-closed"
+              }
+            ],
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "opened",
+                "query": "max:agri.itsm.incidents_auto_opened{*}"
+              },
+              {
+                "data_source": "metrics",
+                "name": "closed",
+                "query": "max:agri.itsm.incidents_auto_closed{*}"
+              }
+            ],
+            "response_format": "timeseries",
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 8,
+        "width": 6,
+        "height": 3
+      }
     },
     {
-      "definition": {"type": "timeseries", "title": "Why it opened — CME feed age (s) drives the auto-incident", "show_legend": true, "requests": [{"formulas": [{"formula": "feed", "alias": "CME feed age (s)"}, {"formula": "stale", "alias": "FRM stale-quote %"}], "queries": [{"data_source": "metrics", "name": "feed", "query": "avg:agri.dataplatform.pricing_feed_age_sec{environment:production}"}, {"data_source": "metrics", "name": "stale", "query": "avg:agri.pricing.stale_quote_pct{environment:production}"}], "response_format": "timeseries", "display_type": "line"}], "markers": [{"value": "y = 20", "display_type": "error dashed", "label": "Feed stale > 20s"}]},
-      "layout": {"x": 6, "y": 8, "width": 6, "height": 3}
+      "definition": {
+        "type": "timeseries",
+        "title": "Why it opened \u2014 CME feed age (s) drives the auto-incident",
+        "show_legend": true,
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "feed",
+                "alias": "CME feed age (s)"
+              },
+              {
+                "formula": "stale",
+                "alias": "FRM stale-quote %"
+              }
+            ],
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "feed",
+                "query": "avg:agri.dataplatform.pricing_feed_age_sec{$environment,$region,$business_segment}"
+              },
+              {
+                "data_source": "metrics",
+                "name": "stale",
+                "query": "avg:agri.pricing.stale_quote_pct{$environment,$region,$business_segment}"
+              }
+            ],
+            "response_format": "timeseries",
+            "display_type": "line"
+          }
+        ],
+        "markers": [
+          {
+            "value": "y = 20",
+            "display_type": "error dashed",
+            "label": "Feed stale > 20s"
+          }
+        ]
+      },
+      "layout": {
+        "x": 6,
+        "y": 8,
+        "width": 6,
+        "height": 3
+      }
     },
     {
-      "definition": {"type": "note", "content": "## Simulated enriched ServiceNow ticket\n*(what the Workflow auto-creates — illustrative payload; bind a ServiceNow connection to make it live)*\n\n```\nINC1000001  ·  Urgency: 1 - High  ·  Assignment group: data-platform-sre\nShort description: Stale CME pricing feed degrading revenue apps (auto-detected)\nState: In Progress → Resolved (auto)\n\n— Auto-enrichment (Datadog Workflow) —\nRoot cause : CME market-data feed staleness on the GCP Bunge Data Platform\nSignal     : agri.dataplatform.pricing_feed_age_sec  (Watchdog, no threshold set)\nBlast radius: Bunge Mobile, myBunge, BungeServices, FRM, BungeAg (5 revenue apps)\nCustomer   : FRM stale-quote % elevated; farmers quoted on stale prices\nRunbook    : restart Dataflow/Composer pricing-feed job → verify feed age < 20s\nClose note : feed age < 20s and stale-quote < 1% sustained · MTTR ~12m vs ~59m manual\n```", "background_color": "white", "font_size": "12", "text_align": "left", "show_tick": false},
-      "layout": {"x": 0, "y": 11, "width": 12, "height": 4}
+      "definition": {
+        "type": "note",
+        "content": "## Simulated enriched ServiceNow ticket\n*(what the Workflow auto-creates \u2014 illustrative payload; bind a ServiceNow connection to make it live)*\n\n```\nINC1000001  \u00b7  Urgency: 1 - High  \u00b7  Assignment group: data-platform-sre\nShort description: Stale CME pricing feed degrading revenue apps (auto-detected)\nState: In Progress \u2192 Resolved (auto)\n\n\u2014 Auto-enrichment (Datadog Workflow) \u2014\nRoot cause : CME market-data feed staleness on the GCP Bunge Data Platform\nSignal     : agri.dataplatform.pricing_feed_age_sec  (Watchdog, no threshold set)\nBlast radius: Bunge Mobile, myBunge, BungeServices, FRM, BungeAg (5 revenue apps)\nCustomer   : FRM stale-quote % elevated; farmers quoted on stale prices\nRunbook    : restart Dataflow/Composer pricing-feed job \u2192 verify feed age < 20s\nClose note : feed age < 20s and stale-quote < 1% sustained \u00b7 MTTR ~12m vs ~59m manual\n```",
+        "background_color": "white",
+        "font_size": "12",
+        "text_align": "left",
+        "show_tick": false
+      },
+      "layout": {
+        "x": 0,
+        "y": 11,
+        "width": 12,
+        "height": 4
+      }
+    }
+  ],
+  "template_variables": [
+    {
+      "name": "region",
+      "prefix": "region",
+      "default": "*",
+      "available_values": [
+        "south-america",
+        "north-america",
+        "emea",
+        "apac"
+      ]
+    },
+    {
+      "name": "environment",
+      "prefix": "environment",
+      "default": "production",
+      "available_values": [
+        "production",
+        "staging",
+        "dr-site"
+      ]
+    },
+    {
+      "name": "business_segment",
+      "prefix": "business_segment",
+      "default": "*",
+      "available_values": [
+        "agribusiness",
+        "refined-specialty-oils",
+        "milling"
+      ]
     }
   ]
 }
