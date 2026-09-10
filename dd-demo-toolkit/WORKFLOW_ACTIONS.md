@@ -34,13 +34,20 @@ the bits Datadog under-documents (the action ID catalog).
    misleading.
 4. **`published: true` is added by the manager.** Don't set it in YAML;
    you'd just be overriding the default.
-5. **Workflows that target an integration (Slack, Jira, ServiceNow,
-   Datadog API actions) need a `connection_label:` on the step.** This
-   tells Datadog which connection in the spec's `connectionEnvs` block
-   to use. The toolkit doesn't auto-materialize connections (tenant-
-   specific), so the workflow will still deploy without one, but the
-   step won't *execute* against a real integration until the user
-   binds a connection in the UI.
+5. **Do NOT set `connection_label:` unless you also ship a pre-built
+   `spec:` with a matching `connectionEnvs` block.** Integration steps
+   (Slack, Jira, ServiceNow, Datadog API actions) *can* take a
+   `connection_label:` pointing at a connection in the spec's
+   `connectionEnvs`, but the toolkit does NOT auto-materialize that block
+   (connections are tenant-specific). If you put a `connection_label:` on
+   a step without a corresponding `connectionEnvs` entry, Datadog rejects
+   the **entire** workflow create with `400 "spec is invalid" / "step
+   connection label <X> not found in connection_env"`. So **omit
+   `connection_label:`** — the workflow then deploys cleanly and the
+   integration step is simply disconnected (no-op / won't execute) until
+   the user binds a connection in the UI. Re-add the label only when you
+   also provide the connectionEnvs (via a UI-exported `spec:`). This bit
+   the agribusiness ServiceNow workflows on first live deploy (2026-06-22).
 
 ---
 
@@ -216,7 +223,8 @@ workflows:
 | `400 spec is invalid` + `no action registered for ID X` | Unknown `actionId` in the payload | Verify the ID via Method 1 above; add to `_TYPE_TO_ACTION_ID` |
 | Workflow deploys, steps shown as `DATADOG CORE > NO OP` | YAML `type:` not in the map → fell through to no-op | Discover the right actionId and add to the map (or set `action_id:` per step) |
 | Steps deployed but **disconnected** on canvas | `outboundEdges` not built or built with wrong shape | The manager handles this now — if you bypassed it via raw `spec:` in YAML, use the object shape `{branchName, nextStepName}` |
-| Step deploys but won't execute | Step needs an integration connection | Set `connection_label:` on the step and bind a connection in the UI (or extend the manager to emit `connectionEnvs`) |
+| `400 spec is invalid` + `step connection label <X> not found in connection_env` | A step has `connection_label:` but the manager emitted no matching `connectionEnvs` (it never auto-materializes one) | **Remove `connection_label:`** — the workflow then deploys with the step disconnected (no-op). Only set it alongside a UI-exported `spec:` that includes the `connectionEnvs`. (See rule 5.) |
+| Step deploys but won't execute (disconnected) | Integration step has no bound connection | Expected for the toolkit's declarative workflows. Bind a connection in the UI; add `connection_label:` back only with a matching `connectionEnvs`/`spec:` |
 | Workflow created but doesn't show as active | Missing `published: true` | Manager sets this automatically since 2026-05 |
 | Description rejected as too long | Datadog workflow description is capped at 300 chars | Trim. The manager does not validate, so this lands as a 400 |
 

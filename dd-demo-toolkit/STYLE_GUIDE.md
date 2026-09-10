@@ -833,6 +833,58 @@ def _set_state(self, device, metric, value):
         state[metric] = value
 ```
 
+### 9.6 Plugin values are CLAMPED to the metric's config `range` — and scaled by `environment_scale`
+
+Two engine mechanics bite plugin authors and broke the agribusiness demo
+before its first live deploy (both traced here so nobody re-debugs them):
+
+1. **Clamp.** `_update_device` runs *after* your plugin every tick and clamps
+   each metric to its `config.yaml` `range: [lo, hi]`. So a plugin that sets
+   `feed_age = 480` on a metric declared `range: [2, 28]` emits **28**, not
+   480 — and every cascade phase that exceeds the range pins to the same
+   ceiling, flattening ramp→degraded→outage into one plateau. **Widen the
+   `range` of any metric your plugin drives to cover its full excursion.** The
+   normal-phase look is anchored by your baseline-hold, not by the max, so a
+   wide max doesn't make idle traffic look anomalous.
+2. **Scale.** `_emit_device_metrics` multiplies every emitted value by
+   `environment_scale[<env>]`. A non-1.0 scale (e.g. `production: 3.0`)
+   silently multiplies gauges your monitors/dashboards/notebooks compare in
+   real units — pushing percentages past 100% and tripping thresholds at
+   baseline. If your thresholds and plugin values are authored in real units,
+   keep `environment_scale` at **1.0** (the finance vertical's 3.0 only works
+   because it uses a `{baseline, jitter}` schema whose thresholds were tuned
+   around it — don't copy that block into a real-units vertical).
+
+Verify both with a headless harness before trusting a cascade: build the
+plugin's device list, run N ticks, apply `clamp(state + drift, range) * scale`,
+and assert each phase's *emitted* min/max lands where the narrative needs it.
+
+### 9.7 Driving application metrics (`app.*`) from a cascade — `app_impact`
+
+By default a plugin only moves *device* metrics; the application signals
+(`{prefix}.app.errors_total` / `.latency_ms` and the trace error rate) come
+from each service's static `operation.error_rate`/latency in
+`_generate_service_trace`. To make a cascade also degrade the revenue apps it
+impacts (so app-error/latency monitors and SLOs actually move), publish an
+optional `app_impact` map in your `incident_state` entry:
+
+```python
+engine.incident_state[<plugin_key>]["app_impact"] = {
+    "frm-pricing-platform": {"error_mult": 9.0, "latency_mult": 2.8},
+    "bunge-mobile-bff":     {"error_mult": 12.0, "latency_mult": 1.8},
+}
+```
+
+The engine's `_service_incident_multipliers` reads it and multiplies that
+service's trace error-probability and latency. Scale the multipliers by a
+phase-intensity (0 during the silent ramp window, peak at outage, decaying in
+recovery) so the app symptom *lags* the root cause — that ordering is what
+makes the RCA/Watchdog story credible. Multipliers compose across concurrent
+incidents; absent the key it's a complete no-op. Because trace volume is ~1/tick
+per service, prefer **rate-based** app-error monitors
+(`sum:errors / sum:requests * 100`) over absolute counts, and remember
+`app.*` metrics carry only `service_name` (no `region`) — don't `by {region}`.
+
 ---
 
 ## 10. Sub-vertical overlay rules
@@ -889,7 +941,7 @@ overlay-only teardown.
 - [ ] Dashboard top-level `tags` is `[]` (only `team`/`ai` keys are accepted; teardown IDs by the `[dd-demo-toolkit:<vertical>]` description marker — §4.2d)
 - [ ] SLO metric queries use `.as_count()` on both numerator and denominator
 - [ ] Notebook `type:` is one of: `postmortem, runbook, investigation, documentation, report, workspace, threat_hunting`
-- [ ] **After editing any file under `verticals/`, run `make build` before `make setup`** — the `verticals/` directory is baked into the Docker image at build time (no live volume mount). `make setup` alone re-deploys whatever was in the image when it was last built, silently deploying stale content and making the live dashboard look unchanged.
+- [ ] **Edits under `verticals/` or `dd_demo_toolkit/` need NO `make build`** — those dirs are bind-mounted read-only into the `setup`/`simulator`/`teardown` containers (editable install at `/app`), so `make setup`, the UI Deploy button, and the simulator read your current files live. Just re-run `make setup` (or restart the simulator to reload plugins/config). `make build` is only for dependency / `Dockerfile` / `docker/`-sidecar changes. (Pre-2026-06-22 these were baked-only; that's why stale-deploy guidance existed — it no longer applies.)
 - [ ] Workflow descriptions ≤ 300 characters
 - [ ] If adding a plugin: disjoint from existing plugins along all 4 axes (spatial, namespace, incident_domain, temporal)
 - [ ] If customer-facing notebook: includes ROI / Business Impact section

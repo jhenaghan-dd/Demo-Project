@@ -28,7 +28,8 @@ import requests
 from dd_demo_toolkit_ui import env_manager
 
 ENV_PATH = Path(os.getenv("DD_DEMO_ENV_PATH", ".env")).resolve()
-RUM_APP_NAME = os.getenv("RUM_APP_NAME", "Care Experience Portal")
+DEFAULT_RUM_APP_NAME = os.getenv("RUM_APP_NAME", "Care Experience Portal")
+DEFAULT_RUM_APP_TYPE = "browser"
 TOKEN_FIELD = "rum-client-token"
 
 
@@ -38,11 +39,36 @@ def _warn_exit(msg: str) -> None:
     sys.exit(0)
 
 
+def _vertical_rum_app(on_disk: dict) -> tuple:
+    """Resolve (app_name, app_type) for the RUM application from the selected
+    vertical's config.yaml `rum:` block, falling back to the browser default.
+
+    Lets each vertical name/type its own RUM app (e.g. agribusiness →
+    "myBunge Mobile" / react-native) instead of the hardcoded hospitality
+    "Care Experience Portal". An env override (RUM_APP_NAME) still wins.
+    """
+    if os.getenv("RUM_APP_NAME"):
+        return os.getenv("RUM_APP_NAME"), os.getenv("RUM_APP_TYPE", DEFAULT_RUM_APP_TYPE)
+    vertical = on_disk.get("DD_DEMO_VERTICAL") or os.getenv("DD_DEMO_VERTICAL", "")
+    if not vertical:
+        return DEFAULT_RUM_APP_NAME, DEFAULT_RUM_APP_TYPE
+    cfg_path = Path(__file__).resolve().parents[1] / "verticals" / vertical / "config.yaml"
+    try:
+        import yaml
+        cfg = yaml.safe_load(cfg_path.read_text()) or {}
+        rum = cfg.get("rum", {}) or {}
+        return (rum.get("app_name", DEFAULT_RUM_APP_NAME),
+                rum.get("app_type", DEFAULT_RUM_APP_TYPE))
+    except Exception:
+        return DEFAULT_RUM_APP_NAME, DEFAULT_RUM_APP_TYPE
+
+
 def main() -> None:
     if not ENV_PATH.exists():
         _warn_exit(f".env not found at {ENV_PATH}; skipping RUM provisioning.")
 
     on_disk = env_manager.read_env(ENV_PATH, mask=False)
+    rum_app_name, rum_app_type = _vertical_rum_app(on_disk)
 
     # 1. Gate on the product picker selection.
     products = [p.strip() for p in (on_disk.get("DD_DEMO_PRODUCTS") or "").split(",") if p.strip()]
@@ -79,7 +105,7 @@ def main() -> None:
         listing.raise_for_status()
         existing = next(
             (d for d in listing.json().get("data", [])
-             if d.get("attributes", {}).get("name") == RUM_APP_NAME),
+             if d.get("attributes", {}).get("name") == rum_app_name),
             None,
         )
         if existing:
@@ -92,10 +118,10 @@ def main() -> None:
             # App genuinely exists AND .env already references it → no churn.
             if (on_disk.get("DD_RUM_APPLICATION_ID") == app_id
                     and (on_disk.get("DD_CLIENT_TOKEN") or "").startswith("op://")):
-                _warn_exit(f"RUM app {RUM_APP_NAME!r} exists and .env already references it; nothing to do.")
+                _warn_exit(f"RUM app {rum_app_name!r} exists and .env already references it; nothing to do.")
         else:
             body = {"data": {"type": "rum_application_create",
-                             "attributes": {"name": RUM_APP_NAME, "type": "browser"}}}
+                             "attributes": {"name": rum_app_name, "type": rum_app_type}}}
             created = requests.post(f"{base}/api/v2/rum/applications", headers=headers,
                                     json=body, timeout=30)
             created.raise_for_status()
@@ -130,7 +156,7 @@ def main() -> None:
     except (ValueError, env_manager.PlainSecretRejected) as e:
         _warn_exit(f"failed to write .env: {e}")
 
-    print(f"  [rum-provision] RUM app {action}: {RUM_APP_NAME!r}")
+    print(f"  [rum-provision] RUM app {action}: {rum_app_name!r} (type={rum_app_type})")
     print(f"  [rum-provision]   DD_RUM_APPLICATION_ID={app_id}")
     print(f"  [rum-provision]   DD_CLIENT_TOKEN={ref}  (token stored in 1Password: {vault}/{item})")
     print("  [rum-provision] care-portal will pick these up on the next `make up`.")

@@ -23,6 +23,29 @@ vertical:
   env_prefix: agri
   emit_interval_sec: 15
 
+# LLM Observability: the Bunge "art of the possible" centers on Watchdog + Bits
+# AIOps, not a customer-facing GenAI app — so disable the simulated LLM Obs trace
+# generator for this vertical. Left on, it would emit a non-Bunge ml_app (the
+# generic "ai-assistant", or another vertical's app like healthcare's
+# "ai-care-companion" if residual) into the demo org, which is off-message.
+# To showcase LLM Observability for Bunge later, set enabled: true and optionally
+# give it a Bunge-specific name via ml_app_name.
+llm_observability:
+  enabled: false
+  # ml_app_name: "bunge-grain-assistant"
+
+# RUM: the shared RUM metrics emitter (simulator/rum.py) is hospitality-themed
+# and emits hospitality.rum.* for EVERY vertical — off-message in the Bunge org.
+# Disable it here so it stops leaking. `make rum-provision` reads app_name/
+# app_type below to create the native "myBunge Mobile" RUM *application*
+# (myBunge is a producer mobile/PWA experience). Populating that app with genuine
+# myBunge session data is a tracked follow-up (vertical-aware emitter / mobile
+# RUM intake) — see the HANDOFF. Flip enabled: true once that emitter ships.
+rum:
+  enabled: false
+  app_name: "myBunge Mobile"
+  app_type: "react-native"
+
 locations:
   dimensions:
   - name: region
@@ -48,11 +71,18 @@ environment_topology:
   staging:    [north-america]
   dr-site:    [south-america]
 
-# Cosmetic emit-time scale per environment.
+# Emit-time scale per environment. MUST be 1.0 here: every monitor threshold,
+# dashboard conditional-format, notebook marker, and the cascade plugin's phase
+# values for this vertical are authored in REAL units (CME feed age in seconds,
+# stale-quote %, connectivity %). A non-1.0 scale (e.g. the 3.0 copied from
+# finance, whose metrics use a baseline/jitter schema) multiplies every emitted
+# value at engine.py `_emit_device_metrics` — pushing connectivity to ~294%,
+# tripping the SAP/Oracle/feed monitors at baseline, and breaking the "nothing
+# alerts today" narrative. Keep at 1.0 unless you re-tune every threshold too.
 environment_scale:
-  production: 3.0
-  staging:    0.15
-  dr-site:    0.05
+  production: 1.0
+  staging:    1.0
+  dr-site:    1.0
 
 device_categories:
 
@@ -138,11 +168,17 @@ device_categories:
       firmware: "2.x"
       count: 8
       metrics:
-      - {name: agri.dataplatform.pricing_feed_age_sec, type: gauge, unit: s, range: [2, 28], drift: 2.0}
-      - {name: agri.dataplatform.pipeline_freshness_sec, type: gauge, unit: s, range: [30, 300], drift: 15.0}
+      # NOTE: ranges below are the CLAMP bounds applied every tick by the engine
+      # (`_update_device`), AFTER the cascade plugin sets a value. They are
+      # widened well past the normal band so the plugin's ramp->degraded->outage
+      # excursion (feed age -> ~480s, error rate -> ~0.07) is not clamped flat.
+      # Normal-phase appearance is anchored by the plugin's baseline hold, not by
+      # these maxima — so a wide max does not make idle traffic look anomalous.
+      - {name: agri.dataplatform.pricing_feed_age_sec, type: gauge, unit: s, range: [2, 650], drift: 2.0}
+      - {name: agri.dataplatform.pipeline_freshness_sec, type: gauge, unit: s, range: [30, 360], drift: 15.0}
       - {name: agri.dataplatform.sap_sync_lag_sec, type: gauge, unit: s, range: [1, 20], drift: 1.0}
-      - {name: agri.dataplatform.pipeline_error_rate, type: gauge, unit: "1", range: [0.001, 0.02], drift: 0.002}
-      - {name: agri.dataplatform.records_processed_per_sec, type: gauge, unit: "1", range: [500, 5000], drift: 300.0}
+      - {name: agri.dataplatform.pipeline_error_rate, type: gauge, unit: "1", range: [0.0005, 0.1], drift: 0.002}
+      - {name: agri.dataplatform.records_processed_per_sec, type: gauge, unit: "1", range: [300, 5000], drift: 300.0}
 
   # SAP landscape — modeled ONLY on the SAP integrations actually available in
   # the Datadog Marketplace, and on exactly what each one collects (verified
@@ -210,9 +246,40 @@ device_categories:
       firmware: "4.3.0"
       count: 6
       metrics:
-      - {name: agri.pricing.quote_latency_ms, type: gauge, unit: ms, range: [40, 210], drift: 8.0}
-      - {name: agri.pricing.stale_quote_pct, type: gauge, unit: "%", range: [0.1, 1.8], drift: 0.2}
-      - {name: agri.pricing.error_rate, type: gauge, unit: "1", range: [0.001, 0.009], drift: 0.001}
+      # Widened clamp bounds (see data_platform note above): the cascade drives
+      # stale-quote % to ~13% and quote latency to ~390ms at peak.
+      - {name: agri.pricing.quote_latency_ms, type: gauge, unit: ms, range: [40, 480], drift: 8.0}
+      - {name: agri.pricing.stale_quote_pct, type: gauge, unit: "%", range: [0.1, 18], drift: 0.2}
+      - {name: agri.pricing.error_rate, type: gauge, unit: "1", range: [0.001, 0.08], drift: 0.001}
+
+  # AIOps / ServiceNow auto-remediation — SIMULATED close-loop.
+  # This environment has no live ServiceNow integration to call, so Eduardo's
+  # "enrich -> auto-open -> auto-close" loop is *imitated*: the data-platform
+  # cascade plugin drives these gauges and writes simulated ServiceNow ticket
+  # logs in lockstep with the incident (auto-open when the customer-facing
+  # symptom appears, auto-close on recovery). Feeds the "AIOps — ServiceNow
+  # Auto-Remediation" dashboard + the close-loop notebook + workflows.yaml.
+  # All gauges (no OTel-counter semantics needed); cumulative tallies use
+  # drift 0 so the engine's per-tick random walk leaves the plugin-set integer
+  # untouched. With environment_scale at 1.0 these values emit verbatim.
+  itsm_automation:
+    ip_base: '10.26'
+    devices:
+    - type: servicenow_connector
+      service: bunge-data-platform
+      manufacturer: ServiceNow
+      model: ITSM-Xanadu
+      firmware: "1.0"
+      count: 1
+      metrics:
+      - {name: agri.itsm.incidents_open, type: gauge, unit: "1", range: [0, 5], drift: 0}
+      - {name: agri.itsm.incidents_auto_opened, type: gauge, unit: "1", range: [0, 100000], drift: 0}
+      - {name: agri.itsm.incidents_auto_closed, type: gauge, unit: "1", range: [0, 100000], drift: 0}
+      - {name: agri.itsm.incidents_enriched, type: gauge, unit: "1", range: [0, 100000], drift: 0}
+      - {name: agri.itsm.alerts_suppressed, type: gauge, unit: "1", range: [0, 80], drift: 0}
+      - {name: agri.itsm.noise_reduction_pct, type: gauge, unit: "%", range: [80, 96], drift: 0}
+      - {name: agri.itsm.mttr_minutes, type: gauge, unit: min, range: [8, 60], drift: 0}
+      - {name: agri.itsm.auto_close_rate_pct, type: gauge, unit: "%", range: [70, 95], drift: 0}
 
 # Revenue-facing apps + the data platform they all depend on. Drives APM traces +
 # the auto-emitted agri.app.requests_total / errors_total / latency_ms{service_name}.

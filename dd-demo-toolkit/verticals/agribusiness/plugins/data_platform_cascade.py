@@ -6,41 +6,63 @@ risk from the briefing: the GCP Bunge Data Platform feeds every revenue app, so
 when its CME market-data feed goes stale, FRM pricing degrades and every app
 prices off bad data at once — a SILENT failure with no infra alert today.
 
-The cascade drives only two device tiers — the data-platform pipelines (root)
-and the FRM pricing engines (symptom). Site / network / SAP / Oracle / host
-namespaces are deliberately left to their normal random-walk so the RCA
-notebook's "rule out the network / DB / SAP" step is honest and the AI can
-isolate the data platform as the leading indicator.
+What the cascade drives (three coupled layers — this is the data->app->revenue
+correlation Watchdog/Bits surface, and the wedge vs an APM-only AI):
 
-Narrative (matches the agribusiness dashboards, monitors, and the
-"Data-Platform Cascade RCA" notebook):
+  1. Data platform (root, DEVICE metrics) — agri.dataplatform.* on the GCP
+     pipelines: pricing_feed_age_sec, pipeline_freshness_sec, error_rate, records.
+  2. FRM pricing (DEVICE metrics) — agri.pricing.* on the pricing engines:
+     stale_quote_pct, quote_latency_ms, error_rate.
+  3. Revenue apps (APPLICATION metrics, via incident_state["app_impact"]) —
+     agri.app.errors_total / agri.app.latency_ms for frm-pricing-platform,
+     bunge-mobile-bff, bungeag-web, mybunge-portal, bungeservices-portal. The
+     engine reads app_impact in _generate_service_trace and amplifies each
+     service's trace error-rate + latency, so the app-error/latency monitors and
+     SLOs actually move during the cascade (not just the device tiers).
+
+Site / network / SAP / Oracle / host namespaces are deliberately LEFT to their
+normal random-walk so the RCA notebook's "rule out the network / DB / SAP" step
+is honest and the AI can isolate the data platform as the leading indicator.
+
+ServiceNow auto-remediation (SIMULATED close-loop) — Eduardo's #1 ask. This env
+has no live ServiceNow integration, so the loop is imitated: the plugin drives
+the agri.itsm.* gauges (auto-opened / auto-closed / open / enriched / MTTR /
+noise-reduction / alerts-suppressed) and writes simulated ServiceNow ticket logs
+onto the bunge-data-platform service — auto-open when the customer-facing symptom
+appears (entering 'degraded'), auto-resolve at the end of recovery. Feeds the
+"AIOps — ServiceNow Auto-Remediation" dashboard, the close-loop notebook, and
+workflows.yaml.
+
+Narrative (matches the agribusiness dashboards, monitors, notebooks):
 
   Phase 1 ramp_up (8 ticks ~2m):
       The CME pricing feed ages — agri.dataplatform.pricing_feed_age_sec drifts
       from ~6s (fresh) toward ~120s; pipeline freshness slips; throughput dips.
-      FRM pricing NOT yet visibly impacted — the dangerous, silent window.
+      FRM pricing + the apps are NOT yet impacted — the dangerous, silent window.
   Phase 2 degraded (10 ticks ~2.5m):
       Feed stale (150-260s); pipeline error rate climbs. FRM reacts —
-      stale-quote % climbs 0.5% -> ~7%, quote latency and error rate grow.
+      stale-quote % climbs toward ~7%. Revenue apps begin to error/slow.
+      ServiceNow incident AUTO-OPENS here (first customer-facing symptom).
   Phase 3 outage (12 ticks ~3m):
       Peak. Feed 300-500s stale, stale-quote % ~8-13%. Every app consuming the
-      feed (Bunge Mobile, myBunge, FRM, BungeAg, BungeServices — see the APM
-      dependency graph) is quoting on bad data.
+      feed errors + slows in unison (see the APM dependency map + app monitors).
   Phase 4 recovering (10 ticks ~2.5m):
-      Feed refreshes — pricing_feed_age drops first, then stale-quote %, then
-      pricing latency / error rate normalize.
+      Feed refreshes — feed age drops first, then stale-quote %, then app
+      errors/latency normalize. ServiceNow incident AUTO-RESOLVES at the end.
 
 4-axis disjointness (currently the only agribusiness plugin; documented so
-future plugins stay disjoint per CLAUDE.md §9.3):
+future plugins stay disjoint per CLAUDE.md / STYLE_GUIDE §9.3):
   1. Spatial    — production environment, the (global) data-platform + FRM
-                  pricing fleet. A future plugin should pick a different
-                  environment/region or device set.
-  2. Namespace  — only agri.dataplatform.* and agri.pricing.*. agri.site.*,
-                  agri.network.*, agri.sap*.*, agri.db.*, agri.host.* are
-                  untouched (keeps the "rule out" RCA step clean).
+                  pricing + ServiceNow-connector fleet. A future plugin should
+                  pick a different environment/region or device set.
+  2. Namespace  — only agri.dataplatform.*, agri.pricing.*, agri.itsm.*, and
+                  the app_impact multipliers for the 5 revenue services.
+                  agri.site.*, agri.network.*, agri.sap*.*, agri.db.*,
+                  agri.host.* are untouched (keeps the "rule out" RCA clean).
   3. Incident-domain — engine.incident_state key 'data_platform_cascade',
                   incident_domain=data-platform-freshness (matches the monitors).
-  4. Temporal   — first fires ~4-6 min after start; re-fires ~10-18 min apart.
+  4. Temporal   — first fires ~15 min after start; re-fires ~15 min after the
+                  previous incident completes (see FIRST_FIRE_TICKS / GAP_TICKS).
 """
 
 import logging
@@ -61,13 +83,20 @@ def _drift(value: float, magnitude: float = 1.0, bias: float = 0.0) -> float:
 
 
 class DataPlatformCascade(IncidentPlugin):
-    """Cross-cutting: stale CME feed in the GCP data platform -> FRM mispricing."""
+    """Cross-cutting: stale CME feed -> FRM mispricing -> revenue-app impact,
+    with a simulated ServiceNow auto-remediation close-loop."""
 
     RAMP_TICKS = 8
     DEGRADED_TICKS = 10
     OUTAGE_TICKS = 12
     RECOVERY_TICKS = 10
     EVENT_TICKS = RAMP_TICKS + DEGRADED_TICKS + OUTAGE_TICKS + RECOVERY_TICKS
+
+    # Cadence (15s/tick). Surfaces ~15 min after start and recurs ~15 min after
+    # each incident completes — matching how the other verticals pace. Tune
+    # these two ranges to change the recurrence; everything else follows.
+    FIRST_FIRE_TICKS = (56, 64)   # ~14-16 min
+    GAP_TICKS = (56, 64)          # ~14-16 min idle between incidents
 
     INCIDENT_ENV = "production"
 
@@ -81,6 +110,27 @@ class DataPlatformCascade(IncidentPlugin):
     PR_LAT = "agri.pricing.quote_latency_ms"
     PR_ERR = "agri.pricing.error_rate"
 
+    # agri.itsm.* — simulated ServiceNow connector gauges.
+    ITSM_OPEN = "agri.itsm.incidents_open"
+    ITSM_OPENED = "agri.itsm.incidents_auto_opened"
+    ITSM_CLOSED = "agri.itsm.incidents_auto_closed"
+    ITSM_ENRICHED = "agri.itsm.incidents_enriched"
+    ITSM_SUPPRESSED = "agri.itsm.alerts_suppressed"
+    ITSM_NOISE = "agri.itsm.noise_reduction_pct"
+    ITSM_MTTR = "agri.itsm.mttr_minutes"
+    ITSM_CLOSE_RATE = "agri.itsm.auto_close_rate_pct"
+
+    # Per-service application impact at PEAK (intensity 1.0). The engine
+    # (_generate_service_trace -> _service_incident_multipliers) multiplies each
+    # service's trace error-rate and latency by these, scaled by phase intensity.
+    APP_IMPACT_PEAK = {
+        "frm-pricing-platform": {"error_mult": 9.0, "latency_mult": 2.8},
+        "bunge-mobile-bff":     {"error_mult": 12.0, "latency_mult": 1.8},
+        "bungeag-web":          {"error_mult": 7.0, "latency_mult": 1.6},
+        "mybunge-portal":       {"error_mult": 5.0, "latency_mult": 1.5},
+        "bungeservices-portal": {"error_mult": 5.0, "latency_mult": 1.5},
+    }
+
     # Clean baselines held during 'normal' so the cascade reads as an obvious
     # anomaly (mirrors the finance/BD plugin pattern).
     BASE_FEED_AGE = 6.0
@@ -92,10 +142,18 @@ class DataPlatformCascade(IncidentPlugin):
     BASE_PR_ERR = 0.003
 
     def __init__(self) -> None:
-        self._ticks_until_next = random.randint(16, 24)  # ~4-6 min
+        self._ticks_until_next = random.randint(*self.FIRST_FIRE_TICKS)
         self._active_tick: Optional[int] = None
         self._pipelines: List[Any] = []
         self._pricers: List[Any] = []
+        self._itsm: List[Any] = []
+        # ServiceNow close-loop tallies (simulated).
+        self._inc_opened = 0
+        self._inc_closed = 0
+        self._inc_enriched = 0
+        self._cur_inc_id: Optional[str] = None
+        self._cur_mttr = 12.0
+        self._prev_phase = "normal"
         logger.info(
             "Data-Platform Cascade initialized. First incident in ~%d min",
             self._ticks_until_next * 15 // 60,
@@ -106,10 +164,17 @@ class DataPlatformCascade(IncidentPlugin):
                 "Mispricing -> Revenue-App Impact")
 
     def reset(self) -> None:
-        self._ticks_until_next = random.randint(16, 24)
+        self._ticks_until_next = random.randint(*self.FIRST_FIRE_TICKS)
         self._active_tick = None
         self._pipelines = []
         self._pricers = []
+        self._itsm = []
+        self._inc_opened = 0
+        self._inc_closed = 0
+        self._inc_enriched = 0
+        self._cur_inc_id = None
+        self._cur_mttr = 12.0
+        self._prev_phase = "normal"
 
     # ------------------------------------------------------------------ tick
     def on_tick(self, tick_count: int, fleet: List[Any], engine: Any) -> None:
@@ -122,29 +187,46 @@ class DataPlatformCascade(IncidentPlugin):
                     self._pipelines.append(d)
                 elif dtype == "pricing_engine":
                     self._pricers.append(d)
+                elif dtype == "servicenow_connector":
+                    self._itsm.append(d)
             if self._pipelines or self._pricers:
-                logger.info("Indexed %d data pipelines, %d pricing engines (production)",
-                            len(self._pipelines), len(self._pricers))
+                logger.info("Indexed %d data pipelines, %d pricing engines, "
+                            "%d servicenow connectors (production)",
+                            len(self._pipelines), len(self._pricers), len(self._itsm))
 
         self._advance_clock()
         phase, phase_tick = self._current_phase()
+        intensity = self._phase_intensity(phase, phase_tick)
+
+        # --- ServiceNow close-loop transitions (simulated) ---
+        open_log = self._maybe_auto_open(phase)
+        close_log = self._maybe_auto_close(phase, phase_tick)
 
         if hasattr(engine, "incident_state"):
             if phase == "normal":
                 engine.incident_state.pop("data_platform_cascade", None)
             else:
-                engine.incident_state["data_platform_cascade"] = {
+                entry = {
                     "phase": phase,
                     "phase_tick": phase_tick,
                     "incident_domain": "data-platform-freshness",
                     "signal_chain_root": "stale-cme-pricing-feed",
                     "environment": self.INCIDENT_ENV,
                 }
+                app_impact = self._app_impact(intensity)
+                if app_impact:
+                    entry["app_impact"] = app_impact
+                tx_logs = [log for log in (open_log, close_log) if log]
+                if tx_logs:
+                    entry["tx_logs"] = tx_logs
+                engine.incident_state["data_platform_cascade"] = entry
 
         self._apply(phase, phase_tick)
+        self._drive_itsm(intensity)
+        self._prev_phase = phase
         if phase != "normal":
-            logger.info("DATA-PLATFORM CASCADE [%s t=%d] pipelines=%d pricers=%d",
-                        phase, phase_tick, len(self._pipelines), len(self._pricers))
+            logger.info("DATA-PLATFORM CASCADE [%s t=%d] pipelines=%d pricers=%d intensity=%.2f",
+                        phase, phase_tick, len(self._pipelines), len(self._pricers), intensity)
 
     # -------------------------------------------------- device shape helpers
     def _device_type(self, device: Any) -> Optional[str]:
@@ -191,7 +273,7 @@ class DataPlatformCascade(IncidentPlugin):
             self._active_tick += 1
             if self._active_tick >= self.EVENT_TICKS:
                 self._active_tick = None
-                self._ticks_until_next = random.randint(40, 72)
+                self._ticks_until_next = random.randint(*self.GAP_TICKS)
                 logger.info("Data-platform cascade complete. Next in ~%d min",
                             self._ticks_until_next * 15 // 60)
         else:
@@ -202,6 +284,104 @@ class DataPlatformCascade(IncidentPlugin):
 
     def _interp(self, lo: float, hi: float, progress: float) -> float:
         return lo + (hi - lo) * progress
+
+    # ---------------------------------------------------------- app impact
+    def _phase_intensity(self, phase: str, t: int) -> float:
+        """0..1 severity used to scale app-impact + ITSM signals. Apps stay
+        clean through ramp_up (the silent window); impact emerges in degraded,
+        peaks in outage, and decays through recovery."""
+        if phase == "degraded":
+            return 0.3 + 0.4 * ((t + 1) / self.DEGRADED_TICKS)   # 0.3 -> 0.7
+        if phase == "outage":
+            return 0.8 + 0.2 * ((t + 1) / self.OUTAGE_TICKS)     # 0.8 -> 1.0
+        if phase == "recovering":
+            return max(0.0, 0.6 * (1 - (t + 1) / self.RECOVERY_TICKS))  # 0.6 -> 0
+        return 0.0  # normal, ramp_up
+
+    def _app_impact(self, intensity: float) -> dict:
+        if intensity <= 0:
+            return {}
+        return {
+            svc: {
+                "error_mult": 1.0 + (peak["error_mult"] - 1.0) * intensity,
+                "latency_mult": 1.0 + (peak["latency_mult"] - 1.0) * intensity,
+            }
+            for svc, peak in self.APP_IMPACT_PEAK.items()
+        }
+
+    # -------------------------------------------------- servicenow close-loop
+    def _maybe_auto_open(self, phase: str) -> Optional[dict]:
+        """Auto-open a (simulated) ServiceNow incident the moment the
+        customer-facing symptom appears — i.e. entering the 'degraded' phase."""
+        if phase == "degraded" and self._prev_phase != "degraded":
+            self._inc_opened += 1
+            self._inc_enriched += 1
+            self._cur_inc_id = f"INC{1000000 + self._inc_opened}"
+            self._cur_mttr = round(random.uniform(10.5, 14.0), 1)
+            logger.info("[SIM ServiceNow] %s auto-opened", self._cur_inc_id)
+            return {
+                "service": "bunge-data-platform",
+                "level": "warning",
+                "message": (
+                    f"[ServiceNow {self._cur_inc_id}] AUTO-OPENED by Datadog Workflow — "
+                    "Watchdog detected CME pricing-feed staleness on the GCP data platform. "
+                    "Enriched: blast radius = 5 revenue apps (Bunge Mobile, myBunge, "
+                    "BungeServices, FRM, BungeAg); runbook attached; assigned data-platform-sre. "
+                    "[SIMULATED — no live ServiceNow integration in this env]"
+                ),
+                "extra": {
+                    "servicenow.incident": self._cur_inc_id,
+                    "servicenow.action": "auto_open",
+                    "aiops.simulated": True,
+                },
+            }
+        return None
+
+    def _maybe_auto_close(self, phase: str, phase_tick: int) -> Optional[dict]:
+        """Auto-resolve at the end of recovery, while incident_state still
+        exists (the last recovering tick)."""
+        if phase == "recovering" and phase_tick == self.RECOVERY_TICKS - 1 and self._cur_inc_id:
+            self._inc_closed += 1
+            inc_id = self._cur_inc_id
+            logger.info("[SIM ServiceNow] %s auto-resolved (MTTR %.1fm)", inc_id, self._cur_mttr)
+            log = {
+                "service": "bunge-data-platform",
+                "level": "info",
+                "message": (
+                    f"[ServiceNow {inc_id}] AUTO-RESOLVED by Datadog Workflow — "
+                    "pricing_feed_age < 20s and FRM stale-quote < 1% sustained. "
+                    f"MTTR {self._cur_mttr}m vs ~59m manual baseline. [SIMULATED]"
+                ),
+                "extra": {
+                    "servicenow.incident": inc_id,
+                    "servicenow.action": "auto_close",
+                    "aiops.simulated": True,
+                    "mttr_minutes": self._cur_mttr,
+                },
+            }
+            self._cur_inc_id = None
+            return log
+        return None
+
+    def _drive_itsm(self, intensity: float) -> None:
+        """Set the simulated ServiceNow connector gauges every tick (incl.
+        normal), so the AIOps dashboard always has live data."""
+        open_now = max(0, self._inc_opened - self._inc_closed)
+        if intensity > 0:
+            suppressed = 18.0 + 40.0 * intensity     # raw signals collapsed into 1 incident
+            noise = 90.0 + 5.0 * intensity
+        else:
+            suppressed = max(0.0, _drift(1.0, 0.8))
+            noise = 88.0
+        for d in self._itsm:
+            self._set(d, self.ITSM_OPEN, float(open_now))
+            self._set(d, self.ITSM_OPENED, float(self._inc_opened))
+            self._set(d, self.ITSM_CLOSED, float(self._inc_closed))
+            self._set(d, self.ITSM_ENRICHED, float(self._inc_enriched))
+            self._set(d, self.ITSM_SUPPRESSED, _clamp(_drift(suppressed, 1.5), 0, 80))
+            self._set(d, self.ITSM_NOISE, _clamp(noise, 80, 96))
+            self._set(d, self.ITSM_MTTR, self._cur_mttr)
+            self._set(d, self.ITSM_CLOSE_RATE, _clamp(_drift(86.0, 1.0), 70, 95))
 
     # -------------------------------------------------------------- overrides
     def _apply(self, phase: str, t: int) -> None:

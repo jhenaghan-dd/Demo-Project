@@ -52,6 +52,10 @@ services:
       # profile is not active this volume is still mounted but /cascade-state
       # is simply never read.
       - cascade-state:/cascade-state
+      # Live source mount — plugin/config edits take effect on the next simulator
+      # (re)start with no rebuild (editable install at /app; see `setup` service).
+      - ./dd_demo_toolkit:/app/dd_demo_toolkit:ro
+      - ./verticals:/app/verticals:ro
     restart: unless-stopped
 
   setup:
@@ -76,6 +80,16 @@ services:
       - PYTHONUNBUFFERED=1
       - DD_API_KEY=${DD_API_KEY:?DD_API_KEY not set — run via `make setup`}
       - DD_APP_KEY=${DD_APP_KEY:?DD_APP_KEY not set — run via `make setup`}
+    # Live source mount — THIS is what makes `make ui` the single front door:
+    # the UI's Deploy button runs `docker compose run setup`, and these read-only
+    # mounts make it read the SE's CURRENT verticals/ + engine code instead of
+    # whatever was baked into the image at build time. No `make build` step, no
+    # UI relaunch — edit a file, click Deploy, get fresh content. Works because
+    # the image installs the package editable (`pip install -e .`, WORKDIR /app),
+    # so imports + vertical-file reads resolve to /app, which these override.
+    volumes:
+      - ./dd_demo_toolkit:/app/dd_demo_toolkit:ro
+      - ./verticals:/app/verticals:ro
     restart: "no"
     profiles:
       - setup
@@ -96,6 +110,11 @@ services:
       - PYTHONUNBUFFERED=1
       - DD_API_KEY=${DD_API_KEY:?DD_API_KEY not set — run via `make teardown`}
       - DD_APP_KEY=${DD_APP_KEY:?DD_APP_KEY not set — run via `make teardown`}
+    # Live source mount so teardown matches the SE's current verticals/ (it reads
+    # the YAML to know which named resources to delete). See `setup` for details.
+    volumes:
+      - ./dd_demo_toolkit:/app/dd_demo_toolkit:ro
+      - ./verticals:/app/verticals:ro
     restart: "no"
     profiles:
       - teardown
@@ -116,6 +135,10 @@ services:
       - PYTHONUNBUFFERED=1
       - DD_API_KEY=${DD_API_KEY:?DD_API_KEY not set — run via `make teardown-all`}
       - DD_APP_KEY=${DD_APP_KEY:?DD_APP_KEY not set — run via `make teardown-all`}
+    # Live source mount for parity with the other lifecycle services (see `setup`).
+    volumes:
+      - ./dd_demo_toolkit:/app/dd_demo_toolkit:ro
+      - ./verticals:/app/verticals:ro
     restart: "no"
     profiles:
       - teardown-all

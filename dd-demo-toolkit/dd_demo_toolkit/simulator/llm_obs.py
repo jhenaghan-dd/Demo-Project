@@ -992,6 +992,7 @@ class LLMObsSubmitter:
         endpoint: str = "otel-collector:4317",
         insecure: bool = True,
         vertical_name: Optional[str] = None,
+        ml_app_name: Optional[str] = None,
     ):
         # LLM-trace rate. Each tick of the simulator runs at EMIT_INTERVAL
         # (default 15s). Emit one trace every `LLMOBS_TICKS_PER_TRACE` ticks
@@ -1067,6 +1068,19 @@ class LLMObsSubmitter:
             self._scenario_attr_prefix = "assistant"
             self._service_host = "ai-assistant-01"
             self._service_framework = "langchain"
+
+        # Optional per-vertical override (config.yaml -> llm_observability.ml_app_name):
+        # lets a vertical name its own LLM app instead of the auto-selected one,
+        # without shipping a full scenario library (scenario content stays whatever
+        # the vertical_name branch above selected — generic by default).
+        if ml_app_name:
+            self._service_name = ml_app_name
+            self._display_name = ml_app_name.replace("-", " ").title()
+            self._ml_app = ml_app_name
+            self._service_host = f"{ml_app_name}-01"
+
+        # Public handle for callers / engine logging.
+        self.ml_app = self._ml_app
 
         # Dedicated TracerProvider for the configured LLM-agent service.
         resource = Resource.create({

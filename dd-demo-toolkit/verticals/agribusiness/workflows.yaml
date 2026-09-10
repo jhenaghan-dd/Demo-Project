@@ -1,0 +1,100 @@
+# AIOps close-loop — Eduardo's #1 ask: "analyze the ticket, enrich it, open the
+# incident when necessary, close it when necessary."
+#
+# IMPORTANT (read before demoing): this environment has NO live ServiceNow
+# integration to call. The `servicenow_*` step types are NOT in the toolkit's
+# verified action-ID catalog (see WORKFLOW_ACTIONS.md), so they deploy as
+# `com.datadoghq.core.noop` — the workflow is created and wired, but the
+# ServiceNow steps don't execute against a real tenant. NOTE: `connection_label`
+# is deliberately OMITTED on the integration steps — Datadog 400s the whole spec
+# ("connection label X not found in connection_env") if a step references a
+# connection the toolkit hasn't materialized. To make this live, bind a
+# ServiceNow/Slack connection in the UI, then add the `connection_label:` back on
+# the step plus a verified action ID (see WORKFLOW_ACTIONS.md).
+#
+# The *executable* demo of the loop is therefore SIMULATED elsewhere and is what
+# you should show live:
+#   - the agri.itsm.* metrics + "AIOps — ServiceNow Auto-Remediation" dashboard
+#     (auto-opened / auto-closed / open / MTTR / noise-reduction), driven by the
+#     data-platform cascade plugin in lockstep with the incident; and
+#   - the "AIOps Auto-Remediation — ServiceNow Close-Loop" notebook (the flow +
+#     simulated enriched ticket payloads).
+# These workflows are the design artifact that shows Eduardo exactly how the
+# real loop is wired once a ServiceNow connection is bound.
+
+workflows:
+  - name: "[Agribusiness] AIOps — Enrich & Auto-Open ServiceNow (Data-Platform Cascade)"
+    description: "On a data-platform-freshness alert: enrich with feed age + blast radius, then auto-open an enriched ServiceNow incident and notify. ServiceNow step is a no-op until a connection is bound (see WORKFLOW_ACTIONS.md)."
+    trigger:
+      type: monitor
+      monitor_tags: ["incident_domain:data-platform-freshness"]
+    steps:
+      - name: enrich_feed_context
+        type: datadog_query
+        description: "Pull current CME pricing-feed age — the root-cause signal to attach to the ticket."
+        parameters:
+          query: "max(last_5m):max:agri.dataplatform.pricing_feed_age_sec{environment:production}"
+      - name: enrich_blast_radius
+        type: datadog_query
+        description: "Pull FRM stale-quote % — the customer-facing blast radius for ticket enrichment."
+        parameters:
+          query: "avg(last_5m):avg:agri.pricing.stale_quote_pct{environment:production}"
+      - name: decide_open
+        type: condition
+        description: "Only auto-open when the feed is genuinely stale (rule out a transient blip)."
+        parameters:
+          condition: "{{steps.enrich_feed_context.result}} > 20"
+      - name: open_servicenow_incident
+        type: servicenow_create_incident   # UNVERIFIED action id -> deploys as no-op until a connection is bound
+        description: "Auto-open an enriched ServiceNow incident: root cause (stale CME feed), blast radius (5 revenue apps), runbook, assignment group."
+        parameters:
+          short_description: "Stale CME pricing feed degrading revenue apps (auto-detected)"
+          urgency: "1"
+          assignment_group: "data-platform-sre"
+          description: "Watchdog detected CME pricing-feed staleness on the GCP data platform. Feed age {{steps.enrich_feed_context.result}}s; FRM stale-quote {{steps.enrich_blast_radius.result}}%. Blast radius: Bunge Mobile, myBunge, BungeServices, FRM, BungeAg. Runbook: restart Dataflow/Composer pricing-feed job."
+      - name: notify_data_platform_team
+        type: slack_message
+        description: "Notify the data-platform SRE channel with the enriched, correlated context."
+        parameters:
+          channel: "#data-platform-sre"
+          message: "🤖 Auto-opened ServiceNow incident — stale CME pricing feed ({{steps.enrich_feed_context.result}}s old) is mispricing 5 revenue apps (FRM stale-quote {{steps.enrich_blast_radius.result}}%). Root cause + runbook attached. Human-in-the-loop: approve the pipeline restart."
+    tags:
+      - "vertical:agribusiness"
+      - "dd-demo-toolkit:true"
+      - "incident_domain:data-platform-freshness"
+      - "workflow-type:auto-remediation"
+
+  - name: "[Agribusiness] AIOps — Auto-Close ServiceNow on Recovery"
+    description: "When the CME feed and FRM stale-quote return to normal, verify recovery and auto-resolve the ServiceNow incident with MTTR context. ServiceNow step is a no-op until a connection is bound."
+    trigger:
+      type: monitor
+      monitor_tags: ["incident_domain:data-platform-freshness"]
+    steps:
+      - name: verify_feed_recovered
+        type: datadog_query
+        description: "Confirm pricing_feed_age has been below the staleness threshold (recovery signal)."
+        parameters:
+          query: "max(last_5m):max:agri.dataplatform.pricing_feed_age_sec{environment:production} < 20"
+      - name: verify_quotes_recovered
+        type: datadog_query
+        description: "Confirm FRM stale-quote % is back under 1% — the customer-facing all-clear."
+        parameters:
+          query: "avg(last_5m):avg:agri.pricing.stale_quote_pct{environment:production} < 1"
+      - name: close_servicenow_incident
+        type: servicenow_create_incident   # same connector; resolve action is also a no-op until verified
+        description: "Auto-resolve the ServiceNow incident once recovery is sustained, recording MTTR vs the manual baseline."
+        parameters:
+          state: "resolved"
+          close_code: "Solved (Permanently)"
+          close_notes: "Pricing-feed age < 20s and FRM stale-quote < 1% sustained. Auto-resolved by Datadog Workflow; analysts saw one correlated incident, not the alert storm."
+      - name: notify_resolution
+        type: slack_message
+        description: "Post the all-clear with MTTR to the channel."
+        parameters:
+          channel: "#data-platform-sre"
+          message: "✅ Auto-resolved — CME feed fresh and FRM quotes back to normal. Watchdog caught it with no threshold; MTTR in minutes vs the ~59-minute manual bridge call."
+    tags:
+      - "vertical:agribusiness"
+      - "dd-demo-toolkit:true"
+      - "incident_domain:data-platform-freshness"
+      - "workflow-type:auto-remediation"

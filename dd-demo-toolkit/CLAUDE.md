@@ -562,34 +562,27 @@ API client methods live in `utils/dd_api.py`
   asking.
 - **DBM demo is now vertical-agnostic.** Set `DD_DEMO_DBM=true` in `.env` to start the three DBM containers (`authorization-db`, `datadog-agent-pp`, `authorization-db-worker`) alongside any vertical's simulator. `make down` stops everything. Setting `DD_DEMO_SUB_VERTICAL=payment-processor` still auto-activates the DBM stack (backward compatible — no `.env` changes needed for existing setups). The cascade plugin writes `/cascade-state/phase.json` (shared volume) each tick; the DB worker reads it to choose normal vs. degraded query patterns. `make build` is required after editing the db-worker (`docker/authorization-db-worker/worker.py`).
 - **authorization-db telemetry paths (2026-06-06):** The `authorization-db-worker` emits OTel traces (`service:authorization-db`) to the shared otel-collector, enabling "View traces" from the DBM dashboard widgets and the DBM entity page. `datadog-agent-pp` collects container logs from the worker via Docker Autodiscovery labels (tagged `service:authorization-db`), enabling "View logs". The `authorization-db` Service Catalog entry (`type: db`) is registered on `make setup --sub-vertical payment-processor`, linking the DBM entity to the catalog entity. After editing the worker, always `make build` before `make up`.
-- **Source is BAKED INTO IMAGES AT BUILD TIME — not live-mounted.**
-  ⚠️ This section previously claimed `verticals/` and `dd_demo_toolkit/`
-  were volume-mounted. That is **false** and cost real debugging time.
-  `Dockerfile:14-16` `COPY`s `dd_demo_toolkit/`, `dd_demo_toolkit_ui/`
-  and `verticals/` into the image, and `docker-compose.yaml` declares
-  **no** bind mount for any of them (verify:
-  `grep -n './verticals\|./dd_demo_toolkit' docker-compose.yaml` returns
-  nothing). `AGENTS.md` and `STYLE_GUIDE.md:874` have always been right
-  about this.
+- **Live source mounts — `verticals/` + `dd_demo_toolkit/` are NOT baked-only anymore (2026-06-22).**
 
-  So an edit under `verticals/`, `dd_demo_toolkit/` or `docker/` does
-  **not** take effect at runtime until the image is rebuilt. The symptom
-  is a Deploy that silently uses stale assets — `docker exec
-  dd-demo-simulator cat /app/verticals/...` still shows the old content.
+  The `simulator`, `setup`, `teardown`, and `teardown-all` services bind-mount
+  `./dd_demo_toolkit` and `./verticals` read-only into `/app` (see
+  docker-compose.yaml). Because the image installs the package editable
+  (`pip install -e .`, WORKDIR `/app`), those mounts override the baked copy at
+  runtime — so **`make setup`, the UI's Deploy button, and the simulator read
+  your CURRENT local files without a rebuild.** This is what makes `make ui` the
+  single front door (edit → click Deploy → fresh); do NOT tell an SE to run
+  `make build` for a content edit, and do not regress these mounts.
 
-  | What changed | Effect at runtime |
+  | What changed | Command |
   |---|---|
-  | Any file under `verticals/` (YAML, JSON, plugins) | needs an image rebuild |
-  | Python source in `dd_demo_toolkit/` | needs an image rebuild |
-  | `docker/` source files (`worker.py`, Dockerfiles) | needs an image rebuild |
-  | `.env` only (vertical, sub-vertical, API keys) | no rebuild |
+  | Any file under `verticals/` (YAML, JSON, plugins) | **no build** — mounted live. `make setup` / UI Deploy; restart the simulator to reload plugins/config |
+  | Python under `dd_demo_toolkit/` (engine, resources) | **no build** — mounted live. Re-run `make setup` / restart the simulator |
+  | `.env` only (vertical, sub-vertical, API keys) | `make setup` — no build needed |
+  | `docker/` images (e.g. `worker.py`), `Dockerfile`, `requirements.txt`, `pyproject.toml` | `make build` (deps/layers changed; not covered by the source mounts) |
 
-  **Do not tell an SE to run `make build` by hand** — that defeats the
-  UI-first front door (§0.6). The fix belongs in the flow: the UI's
-  Deploy and teardown entries in
-  `dd_demo_toolkit_ui/process_supervisor.py` must pass `--build` so the
-  buttons rebuild what they deploy. Local `pytest` is unaffected; it
-  imports from the working tree, not the image.
+  **Default rule: edits to `verticals/` or `dd_demo_toolkit/` need NO build —
+  the containers read them live.** Only `make build` when a dependency, the
+  Dockerfile, or a `docker/` sidecar image changes.
 - After any vertical rename, run a case-insensitive grep for the old name
   across the whole repo — dashboards JSON, YAML, Python plugins, core
   simulator code, and README table rows all need to agree.

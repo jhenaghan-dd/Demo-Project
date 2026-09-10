@@ -108,8 +108,8 @@ monitors:
   # --- Customer-facing apps — the symptom layer of the cross-cutting cascade ---
   - name: "[Agribusiness] Bunge Mobile Error Rate Elevated"
     type: "query alert"
-    query: "avg(last_5m):avg:agri.app.errors_total{service_name:bunge-mobile-bff} by {region} > 8"
-    message: "🔥 Bunge Mobile errors elevated in {{region}} ({{value}}/interval). Farmers can't see cash bids or place contracts during trading hours — they go to a competitor. Check the FRM pricing + data-platform dependency."
+    query: "avg(last_5m):sum:agri.app.errors_total{service_name:bunge-mobile-bff} / sum:agri.app.requests_total{service_name:bunge-mobile-bff} * 100 > 2.5"
+    message: "🔥 Bunge Mobile error rate {{value}}% — farmers can't see cash bids or place contracts during trading hours, so they go to a competitor. The customer-facing symptom of the upstream data-platform / FRM pricing dependency — check the cascade."
     tags:
       - "incident_domain:customer-app-impact"
       - "signal_chain:3-symptom"
@@ -118,8 +118,8 @@ monitors:
 
   - name: "[Agribusiness] FRM Pricing Service Latency (APM)"
     type: "query alert"
-    query: "avg(last_5m):avg:agri.app.latency_ms{service_name:frm-pricing-platform} by {region} > 220"
-    message: "🐢 FRM pricing service latency high in {{region}} ({{value}}ms). Quote generation slowing for Bunge Mobile / BungeAg — check the data-platform pricing feed dependency."
+    query: "avg(last_5m):avg:agri.app.latency_ms{service_name:frm-pricing-platform} > 220"
+    message: "🐢 FRM pricing service latency high ({{value}}ms). Quote generation slowing for Bunge Mobile / BungeAg — check the upstream data-platform pricing-feed dependency."
     tags:
       - "incident_domain:customer-app-impact"
       - "signal_chain:2-leading-indicator"

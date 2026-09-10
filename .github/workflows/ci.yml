@@ -98,6 +98,7 @@ jobs:
         # oilgas went unchecked.
         vertical:
           [
+            agribusiness,
             finance,
             healthcare,
             hospitality,

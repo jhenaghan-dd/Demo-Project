@@ -339,33 +339,57 @@ class SimulatorEngine:
         self.incident_state: Dict[str, Dict[str, Any]] = {}
 
         # LLM Observability — OTel GenAI spans through the collector.
-        # Pass `vertical_name` so the submitter can pick its scenario
-        # library (hospitality default; finance ⇒ EY Risk Portfolio).
+        # Config-driven per vertical (config.yaml -> llm_observability):
+        #   enabled:      default True (back-compat). Set false for verticals
+        #                 with no GenAI app in the story so they don't emit
+        #                 another vertical's ml_app (e.g. healthcare's
+        #                 "ai-care-companion") into the demo org.
+        #   ml_app_name:  optional override for the LLM app / ml_app name; if
+        #                 unset the submitter auto-selects by vertical_name.
         self.llm_obs = None
-        try:
-            from dd_demo_toolkit.simulator.llm_obs import LLMObsSubmitter
-            otel_endpoint = os.environ.get(
-                "OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317"
-            )
-            self.llm_obs = LLMObsSubmitter(
-                endpoint=otel_endpoint,
-                vertical_name=self.vertical_name,
-            )
+        llm_cfg = config.get("llm_observability", {}) or {}
+        if llm_cfg.get("enabled", True):
+            try:
+                from dd_demo_toolkit.simulator.llm_obs import LLMObsSubmitter
+                otel_endpoint = os.environ.get(
+                    "OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317"
+                )
+                self.llm_obs = LLMObsSubmitter(
+                    endpoint=otel_endpoint,
+                    vertical_name=self.vertical_name,
+                    ml_app_name=llm_cfg.get("ml_app_name"),
+                )
+                logger.info(
+                    f"LLM Observability trace generation enabled "
+                    f"(OTel GenAI, vertical={self.vertical_name}, "
+                    f"ml_app={self.llm_obs.ml_app})"
+                )
+            except Exception as exc:
+                logger.warning(f"LLM Observability init failed: {exc}")
+        else:
             logger.info(
-                f"LLM Observability trace generation enabled "
-                f"(OTel GenAI, vertical={self.vertical_name})"
+                "LLM Observability disabled for vertical '%s' (config)",
+                self.vertical_name,
             )
-        except Exception as exc:
-            logger.warning(f"LLM Observability init failed: {exc}")
 
-        # RUM — custom metrics through the engine's shared meter
+        # RUM — custom metrics through the engine's shared meter. Config-gated
+        # per vertical (config.yaml -> rum.enabled, default True). The shared
+        # emitter is hospitality-themed, so a vertical whose RUM isn't re-themed
+        # yet sets enabled:false to avoid leaking hospitality.rum.* into its org.
         self.rum = None
-        try:
-            from dd_demo_toolkit.simulator.rum import RUMSubmitter
-            self.rum = RUMSubmitter(meter=self.meter)
-            logger.info("RUM simulation enabled (shared OTel meter)")
-        except Exception as exc:
-            logger.warning(f"RUM simulation init failed: {exc}")
+        rum_cfg = config.get("rum", {}) or {}
+        if rum_cfg.get("enabled", True):
+            try:
+                from dd_demo_toolkit.simulator.rum import RUMSubmitter
+                self.rum = RUMSubmitter(meter=self.meter)
+                logger.info("RUM simulation enabled (shared OTel meter)")
+            except Exception as exc:
+                logger.warning(f"RUM simulation init failed: {exc}")
+        else:
+            logger.info(
+                "RUM simulation disabled for vertical '%s' (config)",
+                self.vertical_name,
+            )
 
     # ------------------------------------------------------------------
     # Fleet & service builders
@@ -680,6 +704,7 @@ class SimulatorEngine:
                 "device_firmware": device.firmware,
                 "category": device.category,
                 "battery_powered": str(device.battery_powered),
+                "vertical": self.vertical_name,
             }
             attributes.update(device.location)
             if device.service:
@@ -695,6 +720,39 @@ class SimulatorEngine:
     # ------------------------------------------------------------------
     # Service trace & log generation (per-service providers)
     # ------------------------------------------------------------------
+
+    def _service_incident_multipliers(self, service_name: str) -> tuple:
+        """Error-rate and latency multipliers for a service from any ACTIVE
+        incident plugin.
+
+        By default a plugin only mutates *device* metrics; the application
+        signals (``{prefix}.app.errors_total`` / ``.latency_ms`` and the trace
+        error rate) come from each service's static ``operation.error_rate``.
+        To let a cascade also drive the revenue apps it degrades, a plugin
+        publishes an optional ``app_impact`` map in its ``incident_state``
+        entry::
+
+            engine.incident_state["my_cascade"]["app_impact"] = {
+                "frm-pricing-platform": {"error_mult": 8.0, "latency_mult": 2.8},
+                ...
+            }
+
+        Multipliers from concurrent incidents compose multiplicatively. Returns
+        ``(1.0, 1.0)`` when no active incident targets the service — a complete
+        no-op for every vertical that doesn't publish ``app_impact``.
+        """
+        err_mult = 1.0
+        lat_mult = 1.0
+        for incident in self.incident_state.values():
+            impact = (incident or {}).get("app_impact")
+            if not isinstance(impact, dict):
+                continue
+            svc = impact.get(service_name)
+            if not isinstance(svc, dict):
+                continue
+            err_mult *= float(svc.get("error_mult", 1.0))
+            lat_mult *= float(svc.get("latency_mult", 1.0))
+        return err_mult, lat_mult
 
     def _generate_service_trace(self, service_name: str) -> None:
         """
@@ -716,8 +774,12 @@ class SimulatorEngine:
         # Pick a random operation
         operation = random.choice(service.operations)
 
-        # Decide if this call errors
-        should_error = random.random() < operation.error_rate
+        # Active-incident amplification. A cascade plugin can publish per-service
+        # multipliers (see _service_incident_multipliers); default is (1.0, 1.0).
+        err_mult, lat_mult = self._service_incident_multipliers(service_name)
+
+        # Decide if this call errors (cap so a service never goes 100% error)
+        should_error = random.random() < min(0.95, operation.error_rate * err_mult)
 
         # Calculate latency (p99 distribution simplified)
         if random.random() < 0.01:
@@ -730,6 +792,7 @@ class SimulatorEngine:
                     operation.latency_base_ms * 0.1,
                 ),
             )
+        latency_ms *= lat_mult
 
         # Correlation / session IDs for log enrichment
         correlation_id = str(uuid.uuid4())
@@ -740,6 +803,7 @@ class SimulatorEngine:
             "service.name": service_name,
             "host.name": service.host,
             "env": "demo",
+            "vertical": self.vertical_name,
             "demo.display_name": self.display_name,
             "operation.name": operation.name,
             "session.id": session_id,
@@ -760,6 +824,7 @@ class SimulatorEngine:
                 "http.status_code": http_status,
                 "http.url": operation.name.split(" ", 1)[-1] if " " in operation.name else operation.name,
                 "demo.display_name": self.display_name,
+                "vertical": self.vertical_name,
                 "env": "demo",
             },
         ) as root_span:
@@ -786,7 +851,7 @@ class SimulatorEngine:
             self._emit_incident_tx_logs(service_name, svc_log, log_extra)
 
             # --- Emit application-level custom metrics ---
-            svc_attrs = {"service_name": service_name}
+            svc_attrs = {"service_name": service_name, "vertical": self.vertical_name}
             prefix = self.env_prefix
             req_counter = self.instruments.get(f"{prefix}.app.requests_total")
             if req_counter:

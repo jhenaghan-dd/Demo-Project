@@ -17,7 +17,7 @@
       "layout": {"x": 4, "y": 2, "width": 4, "height": 2}
     },
     {
-      "definition": {"type": "query_value", "title": "SAP Sync Lag (s)", "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "max:agri.dataplatform.sap_sync_lag_sec{environment:production}", "aggregator": "max"}], "response_format": "scalar", "custom_unit": "s"}], "autoscale": true, "precision": 1},
+      "definition": {"type": "query_value", "title": "SAP Sync Lag (s)", "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "max:agri.dataplatform.sap_sync_lag_sec{environment:production}", "aggregator": "max"}], "response_format": "scalar"}], "autoscale": true, "custom_unit": "s", "precision": 1},
       "layout": {"x": 8, "y": 2, "width": 4, "height": 2}
     },
     {
@@ -29,11 +29,11 @@
       "layout": {"x": 6, "y": 4, "width": 6, "height": 3}
     },
     {
-      "definition": {"type": "timeseries", "title": "Revenue App Error Rate by Service", "show_legend": true, "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "sum:agri.app.errors_total{environment:production,service_name:(frm-pricing-platform OR bunge-mobile-bff OR mybunge-portal OR bungeservices-portal OR bungeag-web)} by {service_name}"}], "response_format": "timeseries", "display_type": "bars"}]},
+      "definition": {"type": "timeseries", "title": "Revenue App Error Rate by Service", "show_legend": true, "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "sum:agri.app.errors_total{service_name:(frm-pricing-platform OR bunge-mobile-bff OR mybunge-portal OR bungeservices-portal OR bungeag-web)} by {service_name}"}], "response_format": "timeseries", "display_type": "bars"}]},
       "layout": {"x": 0, "y": 7, "width": 6, "height": 3}
     },
     {
-      "definition": {"type": "timeseries", "title": "Revenue App Latency by Service (ms)", "show_legend": true, "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "avg:agri.app.latency_ms{environment:production,service_name:(frm-pricing-platform OR bunge-mobile-bff OR mybunge-portal OR bungeservices-portal OR bungeag-web)} by {service_name}"}], "response_format": "timeseries", "display_type": "line"}]},
+      "definition": {"type": "timeseries", "title": "Revenue App Latency by Service (ms)", "show_legend": true, "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "avg:agri.app.latency_ms{service_name:(frm-pricing-platform OR bunge-mobile-bff OR mybunge-portal OR bungeservices-portal OR bungeag-web)} by {service_name}"}], "response_format": "timeseries", "display_type": "line"}]},
       "layout": {"x": 6, "y": 7, "width": 6, "height": 3}
     }
   ]

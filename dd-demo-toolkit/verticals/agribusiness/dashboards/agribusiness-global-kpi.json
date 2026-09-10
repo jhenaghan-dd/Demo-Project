@@ -25,7 +25,7 @@
       "layout": {"x": 9, "y": 2, "width": 3, "height": 2}
     },
     {
-      "definition": {"type": "timeseries", "title": "Revenue App Latency by Service (ms)", "show_legend": true, "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "avg:agri.app.latency_ms{environment:production,service_name:(frm-pricing-platform OR bunge-mobile-bff OR mybunge-portal OR bungeservices-portal OR bungeag-web)} by {service_name}"}], "response_format": "timeseries", "display_type": "line"}]},
+      "definition": {"type": "timeseries", "title": "Revenue App Latency by Service (ms)", "show_legend": true, "requests": [{"formulas": [{"formula": "q"}], "queries": [{"data_source": "metrics", "name": "q", "query": "avg:agri.app.latency_ms{service_name:(frm-pricing-platform OR bunge-mobile-bff OR mybunge-portal OR bungeservices-portal OR bungeag-web)} by {service_name}"}], "response_format": "timeseries", "display_type": "line"}]},
       "layout": {"x": 0, "y": 4, "width": 6, "height": 3}
     },
     {

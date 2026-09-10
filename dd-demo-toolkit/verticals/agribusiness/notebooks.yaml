@@ -156,7 +156,7 @@ notebooks:
               - response_format: timeseries
                 display_type: line
                 queries:
-                  - {data_source: metrics, name: reqs, query: "sum:agri.app.requests_total{environment:production,service_name:(bunge-mobile-bff OR mybunge-portal OR frm-pricing-platform OR bungeag-web)} by {service_name}"}
+                  - {data_source: metrics, name: reqs, query: "sum:agri.app.requests_total{service_name:(bunge-mobile-bff OR mybunge-portal OR frm-pricing-platform OR bungeag-web)} by {service_name}"}
                 formulas:
                   - {formula: "reqs", alias: "requests"}
       - type: notebook_cells
@@ -213,3 +213,288 @@ notebooks:
               - Wire the Watchdog signal → Workflow → ServiceNow auto-incident.
               - Extend feed-quality monitoring to the SAP and Salesforce sources feeding
                 the same platform (the data-science teams' "garbage in, garbage out").
+
+  - name: "[Agribusiness] AIOps Auto-Remediation — ServiceNow Close-Loop"
+    type: runbook
+    time_range: "1h"
+    cells:
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              # AIOps close-loop: enrich → auto-open → auto-close (ServiceNow)
+
+              This is Eduardo's #1 ask made concrete: *"analyze the ticket, enrich
+              it, open the incident when necessary, close it when necessary…
+              analysts see only real tickets."* It walks the same data-platform
+              cascade as the RCA notebook, but from the **automation** angle —
+              what Datadog does *for* the analyst, not what the analyst does by hand.
+
+              > **Simulated close-loop.** This environment has no live ServiceNow
+              > integration, so the `agri.itsm.*` signals below are driven by the
+              > cascade plugin in lockstep with the incident (auto-open when the
+              > customer-facing symptom appears, auto-close on recovery). The
+              > `workflows.yaml` in this vertical is the real wiring — bind a
+              > ServiceNow connection and it executes against your tenant.
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## Step 1 — Watchdog detects (no threshold set)
+              The CME pricing-feed age climbs and FRM stale-quote % follows. Nobody
+              configured a monitor for this; Watchdog flags the anomaly and
+              correlates root → symptom. That detection is what triggers the workflow.
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: timeseries
+            title: "Trigger — CME feed age (s) leads FRM stale-quote %"
+            show_legend: true
+            requests:
+              - response_format: timeseries
+                display_type: line
+                queries:
+                  - {data_source: metrics, name: feed, query: "avg:agri.dataplatform.pricing_feed_age_sec{environment:production}"}
+                  - {data_source: metrics, name: stale, query: "avg:agri.pricing.stale_quote_pct{environment:production}"}
+                formulas:
+                  - {formula: "feed", alias: "CME feed age (s)"}
+                  - {formula: "stale", alias: "FRM stale-quote %"}
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## Step 2 — Workflow enriches and auto-opens a ServiceNow incident
+              The Datadog Workflow pulls the root-cause signal and blast radius and
+              opens an **enriched** incident — root cause, the five affected revenue
+              apps, the runbook, and the assignment group — so the analyst opens a
+              ticket that already has the answer, not a bare alert.
+
+              ```
+              INC1000001  ·  Urgency: 1 - High  ·  Assignment group: data-platform-sre
+              Short description: Stale CME pricing feed degrading revenue apps (auto-detected)
+              Root cause : CME market-data feed staleness on the GCP Bunge Data Platform
+              Signal     : agri.dataplatform.pricing_feed_age_sec  (Watchdog, no threshold)
+              Blast radius: Bunge Mobile, myBunge, BungeServices, FRM, BungeAg
+              Runbook    : restart Dataflow/Composer pricing-feed job → verify feed age < 20s
+              ```
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: timeseries
+            title: "Open ServiceNow incidents (auto-opened → auto-closed pulse)"
+            show_legend: true
+            requests:
+              - response_format: timeseries
+                display_type: area
+                queries:
+                  - {data_source: metrics, name: open, query: "max:agri.itsm.incidents_open{*}"}
+                formulas:
+                  - {formula: "open", alias: "open incidents"}
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## Step 3 — Noise reduction: one incident, not a storm
+              A stale feed would normally light up dozens of downstream alerts across
+              five apps. Datadog correlates them into a **single** incident — the
+              suppressed-signal count is the noise the analyst never has to triage.
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: timeseries
+            title: "Raw alerts collapsed into one correlated incident"
+            show_legend: true
+            requests:
+              - response_format: timeseries
+                display_type: bars
+                queries:
+                  - {data_source: metrics, name: sup, query: "max:agri.itsm.alerts_suppressed{*}"}
+                formulas:
+                  - {formula: "sup", alias: "alerts suppressed"}
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## Step 4 — Auto-close on recovery, with MTTR
+              When feed age drops back under 20s and FRM stale-quote under 1% and
+              stays there, the workflow **auto-resolves** the incident and records
+              MTTR. Human-in-the-loop stays on the *remediation* action (the pipeline
+              restart); the open/enrich/close bookkeeping is automated.
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: timeseries
+            title: "Cumulative auto-opened vs auto-closed (the loop balances)"
+            show_legend: true
+            requests:
+              - response_format: timeseries
+                display_type: line
+                queries:
+                  - {data_source: metrics, name: opened, query: "max:agri.itsm.incidents_auto_opened{*}"}
+                  - {data_source: metrics, name: closed, query: "max:agri.itsm.incidents_auto_closed{*}"}
+                formulas:
+                  - {formula: "opened", alias: "auto-opened"}
+                  - {formula: "closed", alias: "auto-closed"}
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## ROI / Business impact
+              **What just happened, in operations terms.** A single stale data-platform
+              feed put all five revenue apps at risk of mispricing during trading
+              hours. Detection, enrichment, ticketing, and closure were automated; an
+              analyst approved one remediation instead of triaging an alert storm.
+
+              | Per incident | Manual (today, 28 tools) | Automated (Datadog) | Delta |
+              |---|---|---|---|
+              | Detect | minutes–hours (often customer-reported) | seconds (Watchdog, no threshold) | hours → seconds |
+              | Triage / correlate | cross-team bridge call across tools | one correlated incident | ~50 signals → 1 |
+              | MTTR | ~59 min (Shawn's rule) | ~12 min | **~47 min/incident** |
+              | Analyst effort | multi-tool hunt | approve 1 runbook | hours → minutes |
+
+              **Annualized.** At an SRE/analyst loaded cost ~$110/hr, ~47 min saved per
+              incident is ~$86 in labor each — but the real number is the **revenue
+              protected**: 10,000+ transactions/day priced correctly, the 1–2% pricing
+              edge defended during harvest, and the $190M Viterra synergy that depends
+              on this visibility.
+
+              **Strategic value beyond labor.** Analysts see only real tickets (less
+              burnout, faster onboarding for mixed-seniority regional teams); every
+              auto-closed incident is one fewer reason a farmer gets a wrong price;
+              and the close-loop is auditable evidence for the Gartner scorecard.
+
+              **Bottom line.** The loop turns a silent, multi-hour, multi-tool incident
+              into a minutes-long, single-ticket, auto-documented one — that is the
+              MTTR story that reaches the CFO.
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## Making it live (post-demo)
+              - Bind a **ServiceNow connection** in Workflow Automation; set
+                `connection_label: INTEGRATION_SERVICENOW` on the steps in
+                `workflows.yaml` and add the verified `servicenow_*` action IDs to
+                the toolkit catalog (see `WORKFLOW_ACTIONS.md`).
+              - Same pattern for the Slack notify step (`INTEGRATION_SLACK`).
+              - Keep the human-in-the-loop approval on the pipeline-restart action;
+                start with enrich + auto-open (low risk) before enabling auto-close.
+
+  - name: "[Agribusiness] Datadog vs Dynatrace — Differentiation (Bunge scorecard)"
+    type: documentation
+    time_range: "1h"
+    cells:
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              # Datadog vs Dynatrace — the Bunge differentiation pack
+
+              For Eduardo's Gartner scorecard. **Don't dismiss Davis** — Dynatrace has
+              strong causal AI. The wedge for *Bunge specifically* is not "our AI is
+              smarter," it's **what the AI can see**: an estate that includes the
+              185-site network, logs at scale, DBM, and the GCP data platform — so the
+              AI can correlate **data → app → revenue**, which an APM-first platform
+              structurally can't. The two live charts below are the proof points to
+              pressure-test across both vendors.
+
+              > Ask both vendors to do *this* correlation live: a stale data-platform
+              > feed → FRM mispricing → revenue-app errors, plus the 185-site network
+              > layer underneath. That single ask is the scorecard.
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## Scorecard view (evidence, not bravado)
+
+              | Criterion (Eduardo's words) | Datadog | Dynatrace consideration |
+              |---|---|---|
+              | **Breadth of data the AI sees** | One dataset: APM, logs, DBM, NDM/network (185 sites/500+ links), RUM, security, **+ the GCP data platform** | Strong APM/infra + Davis; network-device layer and a custom data-platform are not native strengths — pressure-test the correlation |
+              | **AIOps (his #1)** | Watchdog (zero-config detect), Bits AI (agentic + natural-language SRE), native ServiceNow enrich/open/close, Forecasts | Davis causal AI is strong; verify the agentic + NL workflow and the native ServiceNow close-loop on the scorecard |
+              | **Network / SolarWinds replacement** | NDM device-level + NetFlow + syslog correlated to infra, 185 sites | APM-first; device-level network monitoring is a known gap — a real Bunge requirement |
+              | **Ease / agent consolidation** | One Datadog Agent, Watchdog on by default, Ansible-deployable | OneAgent is also single-agent; compare on the data breadth above |
+              | **Explainability (leadership cautious on AI)** | Watchdog shows correlated evidence; Bits cites sources; human-in-the-loop on actions | Davis is explainable too; differentiate on breadth + agentic NL, not "more explainable" |
+
+              **The honest line for the room:** "Both are strong AIOps platforms. The
+              question for Bunge is whether the AI can see the network layer and the
+              data platform that every revenue app depends on — because that's where
+              your highest-impact, currently-unwatched risk lives."
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## Proof point 1 — one AI, one dataset, data → app → revenue
+              A stale CME feed (data platform) drives FRM stale-quote % (pricing) which
+              drives revenue-app errors (apps) — all on one dataset, one correlation.
+              This cross-domain chain is the wedge: an APM-only AI sees the app errors
+              but not the data-platform root cause.
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: timeseries
+            title: "Cross-domain correlation: feed age (s) → stale-quote % → revenue-app errors"
+            show_legend: true
+            requests:
+              - response_format: timeseries
+                display_type: line
+                queries:
+                  - {data_source: metrics, name: feed, query: "avg:agri.dataplatform.pricing_feed_age_sec{environment:production}"}
+                  - {data_source: metrics, name: stale, query: "avg:agri.pricing.stale_quote_pct{environment:production}"}
+                  - {data_source: metrics, name: apperr, query: "sum:agri.app.errors_total{service_name:(frm-pricing-platform OR bunge-mobile-bff OR bungeag-web)}.as_count()"}
+                formulas:
+                  - {formula: "feed", alias: "CME feed age (s) — data"}
+                  - {formula: "stale", alias: "FRM stale-quote % — pricing"}
+                  - {formula: "apperr", alias: "revenue-app errors — apps"}
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## Proof point 2 — the 185-site network layer an APM-first AI can't see
+              Harvest connectivity and WAN link latency across the origination network.
+              When a silo loses connectivity, grain doesn't move and scale tickets
+              don't post — a revenue event. Ask Dynatrace to show this device-level
+              network layer correlated with the apps above.
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: timeseries
+            title: "Origination network — site connectivity % and WAN link latency (ms) by region"
+            show_legend: true
+            requests:
+              - response_format: timeseries
+                display_type: line
+                queries:
+                  - {data_source: metrics, name: conn, query: "avg:agri.site.connectivity_pct{environment:production} by {region}"}
+                  - {data_source: metrics, name: lat, query: "avg:agri.network.link_latency_ms{environment:production} by {region}"}
+                formulas:
+                  - {formula: "conn", alias: "site connectivity %"}
+                  - {formula: "lat", alias: "WAN link latency (ms)"}
+      - type: notebook_cells
+        attributes:
+          definition:
+            type: markdown
+            text: |
+              ## How to run the bake-off (next step for the scorecard)
+              1. Give both vendors the **same slice**: data platform → FRM → Bunge
+                 Mobile, plus one origination region's network.
+              2. Trigger the stale-feed scenario; score **time-to-detect**,
+                 **correlation depth** (did the AI link data → app → revenue?), and
+                 **network visibility** (device-level, or app-only?).
+              3. Score the **AIOps loop**: zero-config detection, natural-language
+                 investigation, and a native ServiceNow enrich/open/close.
+              4. Weight by Bunge's stated priorities: AIOps (#1), network/SolarWinds
+                 replacement, ease/consolidation (28 → ~5), explainability.
+
+              *This notebook pairs with the `workflows.yaml` close-loop and the AIOps
+              ServiceNow dashboard — together they are the leave-behind differentiation
+              pack Eduardo asked for.*
