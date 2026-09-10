@@ -89,3 +89,5 @@ a real demo bug. Highest-frequency rules:
    for each affected vertical.
 4. New behavior / bug fix has a hermetic regression test.
 5. No secrets, no new tag keys, no unrelated churn.
+
+## Imported Claude Cowork project instructions
